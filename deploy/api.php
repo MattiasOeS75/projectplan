@@ -13,8 +13,6 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-if (!defined('PLAN_NO_RUN')) main();
-
 function main(): void {
 $cfg = @include __DIR__ . '/config.php';
 if (!is_array($cfg)) fail(500, 'config.php saknas – kopiera config.example.php');
@@ -225,3 +223,5 @@ function monday_sync(PDO $db, array $cfg, array $boardIds): array {
     }
     return ['boards' => array_map(fn($b) => ['name' => $b['board']['name'], 'items' => count($b['items'])], $boards), 'written' => $n];
 }
+
+if (!defined('PLAN_NO_RUN')) main();
