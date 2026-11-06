@@ -72,7 +72,7 @@ function fail(int $code, string $msg): never { http_response_code($code); out(['
 
 function pdo(array $cfg): PDO {
     $dsn = sprintf('pgsql:host=%s;port=%d;dbname=%s', $cfg['PGHOST'], (int)($cfg['PGPORT'] ?? 5432), $cfg['PGDATABASE']);
-    if (!empty($cfg['PGSSL'])) $dsn .= ';sslmode=require';
+    $dsn .= ';sslmode=' . (empty($cfg['PGSSL']) ? 'disable' : 'prefer');
     $db = new PDO($dsn, $cfg['PGUSER'], $cfg['PGPASSWORD'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
     static $init = false;
     if (!$init) { $db->exec(file_get_contents(__DIR__ . '/schema.sql')); $init = true; }

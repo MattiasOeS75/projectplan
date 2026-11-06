@@ -6,7 +6,7 @@ return [
   'PGDATABASE'    => '',
   'PGUSER'        => '',
   'PGPASSWORD'    => '',
-  'PGSSL'         => true,
+  'PGSSL'         => false,   // Websupport: databasen ligger på samma server utan SSL
   'MONDAY_TOKEN'  => '',
   'MONDAY_BOARDS' => '1071363420',
 ];
