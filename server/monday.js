@@ -61,29 +61,62 @@ const safeJson = (s) => { try { return s ? JSON.parse(s) : null; } catch { retur
  *   blocks:   { personId, date (YYYY-MM-DD), part (full|am|pm), projectId, note, tentative? }
  *   absence:  { personId (eller utelämnad = alla), from (YYYY-MM-DD), to (YYYY-MM-DD), part (full|am|pm), label }
  */
-export function mapMonday(boards) {
+/** Board "Projektöversikt" (1071363420): bara grupperna Pitch och Pågående blir projekt.
+ *  Kolumner: Objekt, Status, Kundregister, Kontakt, Projekt Nr., Producent, Involverade, Skapad, Brief, Deadline, Projektperiod. */
+const GROUPS = { pitch: 0, "pågående": 2 }; // grupp → standardfas (Uppstart / Produktion)
+
+export function mapMonday(boards, existing = {}) {
   const out = { projects: {}, people: {}, absence: {} };
+  const peopleByName = Object.fromEntries(Object.entries(existing.people || {}).map(([id, p]) => [norm(p.name), id]));
   for (const { board, items } of boards) {
-    const byTitle = Object.fromEntries(board.columns.map((c) => [c.title.toLowerCase(), c.id]));
-    const col = (it, ...titles) => { for (const t of titles) { const id = byTitle[t.toLowerCase()]; if (id && it.columns[id]?.text) return it.columns[id].text; } return ""; };
+    const byTitle = Object.fromEntries(board.columns.map((c) => [norm(c.title), c.id]));
+    const col = (it, ...titles) => { for (const t of titles) { const id = byTitle[norm(t)]; if (id && it.columns[id]?.text) return it.columns[id].text.trim(); } return ""; };
+    const raw = (it, ...titles) => { for (const t of titles) { const id = byTitle[norm(t)]; if (id && it.columns[id]?.value) return it.columns[id].value; } return null; };
     for (const it of items) {
-      // Heuristik tills mappningen är bestämd: items med "Status"+"Deadline" tolkas som projekt.
-      if (byTitle["status"] || byTitle["deadline"]) {
-        out.projects[`m${it.item_id}`] = {
-          name: it.name,
-          code: col(it, "kod", "projektnummer", "code"),
-          client: col(it, "kund", "client"),
-          phase: phaseFrom(it.group_title, col(it, "fas", "phase", "status")),
-          status: col(it, "status"),
-          delivery: toISO(col(it, "deadline", "leverans", "due date", "leveransdatum")),
-          waiting: col(it, "väntar på", "waiting"),
-          ownerName: col(it, "producent", "ansvarig", "owner", "person"),
-          source: { monday: { board: board.name, item: it.item_id } },
-        };
+      const g = norm(it.group_title);
+      const id = `m${it.item_id}`;
+      if (!(g in GROUPS)) {
+        // Levererat/övrigt: arkivera om projektet tidigare synkats in
+        if (existing.projects?.[id] && !existing.projects[id].archived) out.projects[id] = { ...existing.projects[id], archived: true };
+        continue;
       }
+      const status = col(it, "Status");
+      const period = raw(it, "Projektperiod"); // {from,to}
+      const deadline = toISO(raw(it, "Deadline")?.date) || toISO(col(it, "Deadline")) || toISO(period?.to);
+      const producent = col(it, "Producent");
+      const client = [col(it, "Kundregister"), col(it, "Kontakt")].filter(Boolean).join(" · ");
+      const prev = existing.projects?.[id] || {};
+      // Fas: Pitch → Uppstart. Pågående → behåll fas som satts manuellt i planen, annars Produktion.
+      const phase = g === "pitch" ? 0 : (prev.phase != null && prev.source?.monday ? prev.phase : GROUPS[g]);
+      const color = prev.color ?? nextColor(existing.projects, out.projects);
+      out.projects[id] = {
+        name: it.name,
+        code: col(it, "Projekt Nr.") || shortCode(it.name),
+        client,
+        phase,
+        color,
+        status,
+        delivery: deadline,
+        owner: peopleByName[norm(producent)] || prev.owner || "",
+        archived: false,
+        source: { monday: { board: board.name, boardId: it.board_id, item: it.item_id, group: it.group_title, status, producent,
+                            involverade: col(it, "Involverade"), period: period?.from ? `${period.from} – ${period.to}` : "", created: col(it, "Skapad") } },
+      };
     }
   }
   return out;
+}
+function nextColor(...sets) {
+  const used = {}; for (const set of sets) for (const p of Object.values(set || {})) if (typeof p.color === "number") used[p.color] = (used[p.color] || 0) + 1;
+  let best = 0; for (let i = 0; i < 9; i++) if ((used[i] || 0) < (used[best] || 0)) best = i; return best;
+}
+const norm = (s) => String(s || "").trim().toLowerCase();
+/** Kortnamn (≤8 tecken) ur projektnamnet, t.ex. "Absolut vodka - Murakami" → "ABSMURAK" */
+function shortCode(name) {
+  const words = String(name).replace(/[^\p{L}\p{N} ]+/gu, " ").split(/\s+/).filter((w) => w.length > 1 && !/^(och|the|and|av|x|ml)$/i.test(w));
+  if (!words.length) return String(name).slice(0, 8).toUpperCase();
+  if (words.length === 1) return words[0].slice(0, 8).toUpperCase();
+  return (words[0].slice(0, 3) + words[1].slice(0, 5)).toUpperCase();
 }
 
 const PHASES = ["Uppstart", "Pre-prod", "Produktion", "Post / VFX", "Korr & leverans", "Löpande"];
@@ -116,13 +149,16 @@ export async function syncMonday(store, { boardIds } = {}) {
     await store.upsertMondayItems(b.items);
     boards.push(b);
   }
-  const mapped = mapMonday(boards);
+  const existing = { projects: await store.list("projects"), people: await store.list("people"), absence: await store.list("absence") };
+  const mapped = mapMonday(boards, existing);
   let n = 0;
   for (const col of ["projects", "people", "absence"]) {
-    const existing = await store.list(col);
     for (const [id, data] of Object.entries(mapped[col])) {
-      // Behåll lokala fält (t.ex. color, waitingOn) som inte kommer från Monday
-      await store.set(col, id, { ...(existing[id] || {}), ...data });
+      // Behåll lokala fält (färg, väntar på, budget, deliveries, manuellt satt fas) som inte kommer från Monday
+      const prev = existing[col][id] || {};
+      const merged = { ...prev, ...data };
+      if (col === "projects") { if (prev.color != null) merged.color = prev.color; if (prev.waiting) merged.waiting = prev.waiting; if (prev.budget != null) merged.budget = prev.budget; if (prev.deliveries) merged.deliveries = prev.deliveries; }
+      await store.set(col, id, merged);
       n++;
     }
   }

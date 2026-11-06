@@ -53,6 +53,19 @@ Faser: `0 Uppstart · 1 Pre-prod · 2 Produktion · 3 Post / VFX · 4 Korr & lev
 2. Sätt `MONDAY_BOARDS=…` i `.env`.
 3. `npm run sync` (eller POST `/api/monday/sync`).
 
-Mappningen ligger i `mapMonday()` i `server/monday.js` och är en första heuristik (kolumner som heter
-*Status/Deadline/Kund/Producent* etc.). Den justeras när boardens faktiska kolumner är kända.
-Synken skriver över Monday-fälten men behåller lokala fält som färg och "väntar på".
+Mappningen (`mapMonday()` i `server/monday.js`) är skriven för boardet **Projektöversikt** (1071363420):
+
+| Monday | Plan |
+|---|---|
+| grupp *Pitch* | fas Uppstart |
+| grupp *Pågående* | fas Produktion (manuellt ändrad fas behålls vid nästa synk) |
+| grupp *Levererat* / övriga | tas inte in; tidigare synkade projekt arkiveras |
+| Objekt | `name` |
+| Projekt Nr. | `code` (saknas → kortnamn ur namnet, t.ex. ABSMURAK) |
+| Kundregister · Kontakt | `client` |
+| Status | `status` |
+| Deadline, annars Projektperiod-slut | `delivery` |
+| Producent | `owner` (matchas mot personer i planen på namn) |
+| Involverade, Skapad, period | sparas under `source.monday` |
+
+Lokala fält (färg, väntar på, budget, leveranser) skrivs aldrig över av synken. Projekt-id = `m<item_id>`.
