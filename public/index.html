@@ -1,0 +1,795 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- Lokal variant (API-backad) av Claude-artefakten "Crosby Produktionsplan" (claude.ai/artifact/PqfqPkii38Nkv2rrpTPY6E), hämtad 2026-11-06. -->
+<title>Crosby Produktionsplan</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: pipeline-band (projekt per fas) överst, beläggningsgrid (personer × arbetsdagar, FM/EM) under. */
+:root{
+  --bg:#0e1217; --surface:#161b22; --surface2:#1e252e; --fg:#e6ebf0; --muted:#94a1af; --line:#2a323c;
+  --accent:#8099ff; --warn:#f0a253; --bad:#ff6e72; --ok:#69db7c;
+  --p0:#ff8a4c; --p1:#f06595; --p2:#51cf66; --p3:#f0c030; --p4:#4dabf7; --p5:#9775fa; --p6:#3bc9db; --p7:#f783ac; --p8:#99a4b0;
+  color-scheme:dark;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --namew:168px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e1217; --surface:#161b22; --surface2:#1e252e; --fg:#e6ebf0; --muted:#94a1af; --line:#2a323c;
+  --accent:#8099ff; --warn:#f0a253; --bad:#ff6e72; --ok:#69db7c;
+  --p0:#ff8a4c; --p1:#f06595; --p2:#51cf66; --p3:#f0c030; --p4:#4dabf7; --p5:#9775fa; --p6:#3bc9db; --p7:#f783ac; --p8:#99a4b0;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1217; --surface:#161b22; --surface2:#1e252e; --fg:#e6ebf0; --muted:#94a1af; --line:#2a323c;
+  --accent:#8099ff; --warn:#f0a253; --bad:#ff6e72; --ok:#69db7c;
+  --p0:#ff8a4c; --p1:#f06595; --p2:#51cf66; --p3:#f0c030; --p4:#4dabf7; --p5:#9775fa; --p6:#3bc9db; --p7:#f783ac; --p8:#99a4b0;
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:14px;line-height:1.4;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 60px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1600px;margin:0 auto;display:flex;flex-direction:column;gap:22px}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:700;font-size:30px;letter-spacing:.02em;text-transform:uppercase;margin:0;line-height:1}
+h1 small{display:block;font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:.04em;text-transform:none;color:var(--muted);margin-top:6px}
+h2{font-family:var(--display);font-weight:600;font-size:18px;letter-spacing:.06em;text-transform:uppercase;margin:0}
+.note{font-size:13px;color:var(--warn)}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 11px;font-weight:500}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.danger{color:var(--bad)}
+.btn.ghost{background:transparent}
+
+/* Pipeline */
+.sechead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.pipe{overflow-x:auto;padding-bottom:4px}
+.phases{display:grid;grid-template-columns:repeat(6,minmax(210px,1fr));gap:10px;min-width:1320px}
+.phase{display:flex;flex-direction:column;gap:8px;min-width:0}
+.phase h3{font-family:var(--mono);font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0;
+  padding-bottom:6px;border-bottom:2px solid var(--line);display:flex;justify-content:space-between}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 11px;display:flex;flex-direction:column;gap:5px;
+  text-align:left;width:100%;border-top:4px solid var(--c);min-width:0}
+.card:hover{border-color:var(--c)}
+.card .nm{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.card b{font-family:var(--display);font-size:19px;font-weight:600;letter-spacing:.02em;line-height:1.1}
+.card .code{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.card .st{font-size:12.5px;color:var(--muted);overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35}
+.card .meta .lev{color:var(--fg);font-weight:500}
+.card .meta{display:flex;flex-wrap:wrap;gap:4px 10px;font-family:var(--mono);font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.card .meta .over{color:var(--bad);font-weight:500}
+.wait{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px;background:color-mix(in srgb,var(--warn) 14%,var(--surface));color:var(--warn);border-radius:4px;padding:3px 7px;align-self:flex-start}
+.empty{font-size:12px;color:var(--muted);border:1px dashed var(--line);border-radius:8px;padding:10px;text-align:center}
+.addcard{border:1px dashed var(--line);background:transparent;border-radius:8px;padding:9px;color:var(--muted);font-weight:500}
+.addcard:hover{color:var(--accent);border-color:var(--accent)}
+
+/* Toolbar */
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:transparent;padding:6px 10px;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.range{font-family:var(--mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.legend{display:flex;flex-wrap:wrap;gap:6px}
+.chip{cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:3px 10px 3px 7px;font-size:12px;font-weight:500}
+.chip i{width:10px;height:10px;border-radius:3px;background:var(--c)}
+.chip[aria-pressed="true"]{border-color:var(--c);box-shadow:inset 0 0 0 1px var(--c)}
+
+/* Grid */
+.gridwrap{overflow-x:auto;scroll-snap-type:x proximity;scroll-padding-left:var(--namew);overscroll-behavior-x:contain;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.grid{display:grid;min-width:min-content}
+.g-h,.g-n,.g-c,.g-m{border-bottom:1px solid var(--line);border-left:1px solid var(--line)}
+.g-n,.g-corner,.g-mlabel{border-left:0;position:sticky;left:0;z-index:3;background:var(--surface)}
+.g-h{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:1px;text-align:center;padding:6px 4px 5px;font-family:var(--mono);font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;background:var(--surface);position:sticky;top:0;z-index:2}
+.g-h .wk{display:block;color:var(--fg);font-weight:500;height:14px}
+.g-h .dn{display:block;white-space:nowrap;line-height:1.25}
+.g-h .tg{display:block;height:14px;font-weight:800;font-size:10px;letter-spacing:.06em;text-transform:uppercase;line-height:14px}
+.g-h.today{background:var(--ok);color:var(--bg)} .g-h.today .wk{color:var(--bg)} .g-h.today .dn{font-weight:600}
+.g-m.today{background:color-mix(in srgb,var(--ok) 16%,var(--surface2))}
+.g-corner{border-bottom:1px solid var(--line);padding:6px 10px;font-family:var(--mono);font-size:11px;color:var(--muted);position:sticky;top:0;left:0;z-index:4}
+.mon{border-left:2px solid var(--muted)!important}
+.g-h.mon,.g-h.first{scroll-snap-align:start}
+.g-mlabel{border-bottom:1px solid var(--line);padding:6px 10px;font-size:11px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center}
+.g-m{padding:4px;display:flex;flex-direction:column;gap:3px;background:var(--surface2);min-height:30px}
+.ms{font-size:10px;line-height:1.2;padding:2px 5px;border-radius:3px;background:color-mix(in srgb,var(--c) 18%,var(--surface));border-left:3px solid var(--c);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ms.del{font-weight:800;font-size:11px;padding:4px 6px;background:var(--c);color:var(--ink,var(--bg));border-left:0;border-radius:4px;text-transform:uppercase;letter-spacing:.04em;box-shadow:0 0 0 2px var(--fg);margin:2px}
+.ms.del::before{content:"⚑ ";font-weight:400}
+.g-h.dl{background:var(--dc);color:var(--dink,var(--bg));box-shadow:inset 0 -3px 0 var(--fg)} .g-h.dl .wk{color:var(--dink,var(--bg))}
+.g-h.today.dl{background:var(--ok);color:var(--bg);box-shadow:inset 0 -6px 0 var(--dc)}
+.g-c.dl{background-image:linear-gradient(color-mix(in srgb,var(--dc) 20%,transparent),color-mix(in srgb,var(--dc) 20%,transparent));box-shadow:inset 3px 0 0 var(--dc),inset -3px 0 0 var(--dc)}
+.g-n{padding:7px 10px;display:flex;flex-direction:column;justify-content:center;gap:1px;text-align:left;border-top:0;border-right:0;border-bottom:1px solid var(--line);cursor:pointer;background:var(--surface)}
+.g-n:hover .pn{text-decoration:underline}
+.pn{font-weight:600;font-size:14px;display:flex;align-items:center;gap:6px}
+.pr{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl{font-family:var(--mono);font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+.flag{font-family:var(--mono);font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--bad);border:1px solid currentColor;border-radius:3px;padding:0 4px}
+.row-bottle{background:color-mix(in srgb,var(--bad) 5%,var(--surface))}
+.g-c{position:relative;min-height:58px;padding:3px;display:grid;grid-template-rows:1fr 1fr;grid-auto-flow:column dense;grid-auto-columns:minmax(0,1fr);gap:2px}
+.g-c.today{background-color:color-mix(in srgb,var(--ok) 11%,transparent);box-shadow:inset 2px 0 0 color-mix(in srgb,var(--ok) 55%,transparent),inset -2px 0 0 color-mix(in srgb,var(--ok) 55%,transparent)}
+.g-c.drop{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.g-c[data-zone]::before{content:attr(data-zone);position:absolute;left:2px;right:2px;z-index:3;border:2px dashed var(--accent);border-radius:4px;
+  background:color-mix(in srgb,var(--accent) 16%,var(--surface));color:var(--accent);font-family:var(--mono);font-size:10px;font-weight:500;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.g-c[data-zone="FM"]::before{top:2px;height:calc(50% - 3px)} .g-c[data-zone="EM"]::before{bottom:2px;height:calc(50% - 3px)} .g-c[data-zone="Heldag"]::before{top:2px;bottom:2px}
+.card[draggable="true"],.chip[draggable="true"]{cursor:grab}
+.card{cursor:pointer}
+.hit{position:absolute;left:0;right:0;height:50%;border:0;background:transparent;z-index:0;padding:0}
+.hit.am{top:0} .hit.pm{bottom:0}
+.hit:hover{background:color-mix(in srgb,var(--fg) 5%,transparent)}
+.hit:hover::after{content:"+";position:absolute;right:5px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--muted)}
+.plus{position:absolute;right:1px;bottom:1px;z-index:2;width:16px;height:16px;border:0;border-radius:3px;background:var(--surface2);color:var(--muted);font-size:12px;line-height:1;padding:0;opacity:0}
+.g-c:hover .plus,.plus:focus-visible{opacity:1}
+@media (hover:none){.plus{opacity:.8}}
+.blk{position:relative;z-index:1;border:0;background:color-mix(in srgb,var(--c) 30%,var(--surface));color:color-mix(in srgb,var(--c) 45%,var(--fg));border-radius:6px;
+  padding:4px 6px;font-size:11px;font-weight:600;letter-spacing:.01em;text-align:left;overflow:hidden;min-width:0;display:flex;flex-direction:column;justify-content:flex-start;gap:1px;line-height:1.2}
+.blk.full{grid-row:1 / span 2} .blk.am{grid-row:1} .blk.pm{grid-row:2}
+.blk span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.blk em{font-style:normal;font-family:var(--mono);font-weight:500;font-size:9px;color:inherit;opacity:.75}
+
+.blk[draggable="true"]{cursor:grab}
+.blk .rm{position:absolute;top:2px;right:9px;z-index:4;width:15px;height:15px;border:0;border-radius:3px;padding:0;background:var(--surface);color:var(--bad);font-size:13px;font-weight:700;line-height:15px;text-align:center;opacity:0;box-shadow:0 0 0 1px var(--line)}
+.blk:hover .rm,.blk:focus-within .rm,.rm:focus-visible{opacity:1}
+.blk .rm:hover{background:var(--bad);color:#fff}
+@media (hover:none){.blk .rm{opacity:.85}}
+.toast button{margin-left:10px;border:0;background:transparent;color:inherit;font-weight:600;text-decoration:underline;padding:0}
+.blk.cl{border-top-left-radius:0;border-bottom-left-radius:0;margin-left:-4px}
+.mon .blk.cl{margin-left:-5px}
+.blk.cr{border-top-right-radius:0;border-bottom-right-radius:0;margin-right:-4px}
+.blk.cl>span,.blk.cl>em{visibility:hidden}
+.blk.cl .rh.l,.blk.cr .rh.r{display:none}
+.blk.cr .rm{right:6px}
+
+.grid.ovmode .blk,.grid.ovmode .plus,.grid.ovmode .badge,.grid.ovmode .hit{visibility:hidden}
+.grid.ovmode .g-c.today{box-shadow:inset 2px 0 0 color-mix(in srgb,var(--ok) 55%,transparent),inset -2px 0 0 color-mix(in srgb,var(--ok) 55%,transparent)}
+.grid.ovmode .g-c.dl{box-shadow:inset 3px 0 0 var(--dc),inset -3px 0 0 var(--dc)}
+/* frånvaro */
+.ab{position:relative;z-index:1;border-radius:3px;font-size:10px;font-weight:600;color:var(--muted);padding:2px 4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+  background:repeating-linear-gradient(135deg,var(--surface2) 0 5px,color-mix(in srgb,var(--muted) 18%,var(--surface2)) 5px 10px);border:1px solid var(--line);cursor:default}
+.ab.full{grid-row:1 / span 2} .ab.am{grid-row:1} .ab.pm{grid-row:2}
+.g-c.absday .hit{cursor:not-allowed}
+/* preliminär */
+.blk.tent{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--c) 26%,var(--surface)) 0 6px,color-mix(in srgb,var(--c) 10%,var(--surface)) 6px 12px);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 55%,transparent);font-style:italic}
+.blk.tent>span::after{content:" ?";font-style:normal;opacity:.7}
+/* veckobeläggning */
+.wls{display:flex;gap:3px;margin-top:3px}
+.wl{display:flex;flex-direction:column;align-items:center;gap:1px;font-family:var(--mono);font-size:8.5px;color:var(--muted);width:30px}
+.wl b{display:block;width:100%;height:5px;border-radius:2px;background:var(--surface2);position:relative;overflow:hidden}
+.wl b i{position:absolute;left:0;top:0;bottom:0;width:var(--w);background:var(--ok)}
+.wl.warn b i{background:var(--warn)} .wl.bad b i{background:var(--bad)} .wl.bad{color:var(--bad);font-weight:600}
+@media (max-width:640px){.wl:nth-child(n+4){display:none}}
+/* leveransrisk */
+.ms.del.risk{box-shadow:0 0 0 2px var(--bad),0 0 0 4px color-mix(in srgb,var(--bad) 30%,transparent)}
+.ms.del.risk::after{content:" !";color:var(--bad);background:var(--surface);border-radius:50%;padding:0 4px;margin-left:3px;font-weight:800}
+.daylist .risk{font-size:12px;color:var(--bad);font-weight:600;margin-top:3px;display:block}
+/* resurser */
+.g-n[draggable="true"]{cursor:grab}
+.g-n.dropb{box-shadow:inset 0 3px 0 var(--accent)} .g-n.dropa{box-shadow:inset 0 -3px 0 var(--accent)}
+.g-n.dragging{opacity:.4}
+.g-sep span{position:sticky;left:10px}
+.g-sep{grid-column:1 / -1;padding:6px 10px;font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);background:var(--surface2);border-bottom:1px solid var(--line)}
+.g-n.res .pn::before{content:"◇ ";color:var(--muted)}
+.ovnote{grid-column:1 / -1;padding:10px 12px;font-size:12px;color:var(--muted);position:sticky;left:0}
+.blk .rh{position:absolute;top:0;bottom:0;width:8px;z-index:3;cursor:ew-resize;touch-action:none}
+.blk .rh.r{right:0} .blk .rh.l{left:-3px}
+.blk .rh::after{content:"";position:absolute;top:25%;bottom:25%;width:2px;border-radius:1px;background:var(--fg);opacity:0;left:3px}
+.blk:hover .rh::after{opacity:.45}
+@media (hover:none){.blk .rh::after{opacity:.3}}
+.g-c.rs{box-shadow:inset 0 0 0 2px var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.g-c.rs-del{box-shadow:inset 0 0 0 2px var(--bad);background:color-mix(in srgb,var(--bad) 10%,transparent)}
+body.resizing,body.resizing *{cursor:ew-resize!important;user-select:none}
+.ms.av{font-weight:500;background:var(--surface);color:var(--muted);border:1px solid color-mix(in srgb,var(--c) 45%,var(--line));border-left:3px solid var(--c)}
+.ms{cursor:pointer}
+.ms:hover{filter:brightness(1.08);box-shadow:0 0 0 1px var(--c)}
+.g-m.tall{min-height:52px;padding:5px 4px}
+.g-m.tall .ms{white-space:normal;font-size:11px;line-height:1.25;padding:4px 6px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;max-height:calc(3.75em + 8px);flex-shrink:0}
+.g-m.tall .g-mlabel{font-weight:600}
+.g-h.avd{box-shadow:inset 0 -3px 0 color-mix(in srgb,var(--ac) 70%,transparent);color:var(--fg)}
+.g-c.avd{background-image:linear-gradient(color-mix(in srgb,var(--ac) 6%,transparent),color-mix(in srgb,var(--ac) 6%,transparent))}
+.g-m.tall.ov{min-height:44px;gap:4px}
+.g-m.tall.ov .ms{display:block;-webkit-line-clamp:unset;max-height:none;white-space:normal;overflow:visible;font-size:11.5px;line-height:1.3}
+.daylist{display:flex;flex-direction:column;gap:8px}
+.daylist .it{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:start;padding:8px 10px;border-radius:6px;border-left:4px solid var(--c);background:color-mix(in srgb,var(--c) 12%,var(--surface))}
+.daylist .it b{display:block;font-size:13px} .daylist .it span{font-size:13px} .daylist .it.del{background:color-mix(in srgb,var(--c) 28%,var(--surface))}
+.daylist .tag{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.card .shl{color:var(--accent);text-decoration:none;font-weight:500}
+.card .shl:hover{text-decoration:underline}
+.card .next{font-size:12px;color:var(--fg);display:flex;gap:6px;align-items:baseline}
+.card .next b{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--muted)}
+.mslist{display:flex;flex-direction:column;gap:2px;font-size:13px;border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:var(--bg)}
+.mslist div{display:grid;grid-template-columns:64px 1fr;gap:8px}
+.mslist div.past{color:var(--muted)} .mslist div.del{font-weight:600}
+.mslist span{font-family:var(--mono);font-size:11px;color:var(--muted);padding-top:2px}
+.toggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer}
+.dim .blk:not(.focus),.dim .ms:not(.focus){opacity:.18}
+.badge{position:absolute;left:3px;bottom:1px;z-index:2;font-family:var(--mono);font-size:9px;color:#fff;background:var(--bad);border-radius:3px;padding:0 3px}
+.addrow{grid-column:1 / -1;padding:8px 10px;position:sticky;left:0}
+.hint{font-size:12px;color:var(--muted)}
+
+/* Popover / drawer */
+.scrim{position:fixed;inset:0;background:color-mix(in srgb,#000 30%,transparent);z-index:20}
+.pop{position:fixed;z-index:21;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.22);
+  width:min(360px,calc(100vw - 32px));padding:14px;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.drawer{position:fixed;z-index:21;top:0;right:0;bottom:0;width:min(440px,100vw);background:var(--surface);border-left:1px solid var(--line);
+  padding:calc(18px + env(safe-area-inset-top,0px)) max(18px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) 18px;overflow:auto;display:flex;flex-direction:column;gap:12px}
+.pop h4,.drawer h4{margin:0;font-family:var(--display);font-size:20px;font-weight:600;letter-spacing:.02em}
+.sub{font-family:var(--mono);font-size:11px;color:var(--muted)}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:500}
+label.f input,label.f select,label.f textarea{border:1px solid var(--line);border-radius:6px;padding:7px 9px;background:var(--bg);font-size:14px;color:var(--fg)}
+label.f textarea{min-height:70px;resize:vertical}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pick{display:flex;flex-wrap:wrap;gap:6px}
+.pick button{border:1px solid var(--line);background:var(--surface);border-radius:5px;padding:5px 9px 5px 7px;font-size:12px;font-weight:600;display:inline-flex;gap:6px;align-items:center}
+.pick button i{width:10px;height:10px;border-radius:3px;background:var(--c)}
+.pick button[aria-pressed="true"]{border-color:var(--c);background:color-mix(in srgb,var(--c) 18%,var(--surface))}
+.sw{display:flex;gap:6px;flex-wrap:wrap}
+.sw button{width:26px;height:26px;border-radius:6px;border:2px solid transparent;background:var(--c)}
+.sw button[aria-pressed="true"]{border-color:var(--fg)}
+.sw .own{position:relative;width:26px;height:26px;border-radius:6px;border:2px solid transparent;overflow:hidden;cursor:pointer;
+  background:conic-gradient(#e8590c,#f0c030,#2f9e44,#0c8599,#1c7ed6,#7048e8,#c2255c,#e8590c)}
+.sw .own[aria-pressed="true"]{border-color:var(--fg);background:var(--own)}
+.sw .own input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;border:0;padding:0}
+.chip i{cursor:pointer}
+.chip i:hover{outline:2px solid var(--fg);outline-offset:1px}
+.acts{display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap}
+.acts div{display:flex;gap:8px}
+.chk{display:flex;align-items:center;gap:8px;font-size:13px}
+.tipbox{position:fixed;z-index:19;width:min(320px,calc(100vw - 32px));background:var(--surface);border:1px solid var(--line);border-top:4px solid var(--c);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:11px 13px;display:flex;flex-direction:column;gap:7px;font-size:12.5px;pointer-events:none}
+.tipbox h5{margin:0;font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:.02em;display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.tipbox h5 small{font-family:var(--mono);font-size:10px;color:var(--muted);font-weight:400}
+.tipbox .r{display:grid;grid-template-columns:78px 1fr;gap:8px}
+.tipbox .r span:first-child{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding-top:2px}
+.tipbox .hint2{font-size:11px;color:var(--muted)}
+.tipbox:has(.msh){width:auto;max-width:min(300px,calc(100vw - 32px));padding:9px 11px}
+.tipbox .msh{display:flex;flex-direction:column;gap:2px;padding:7px 9px;border-radius:6px;background:color-mix(in srgb,var(--c) 16%,var(--surface));border-left:3px solid var(--c)}
+.tipbox .msh span{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.tipbox .msh b{font-size:13.5px;font-weight:600;line-height:1.3}
+.tipbox .msh em{font-style:normal;font-size:12px;color:var(--bad);font-weight:600}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:6px;font-size:13px;z-index:30}
+@media (max-width:640px){
+  :root{--namew:112px}
+  .pop{left:16px!important;right:16px;width:auto;top:auto!important;bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+  .pr{display:none}
+}
+@media (prefers-reduced-motion:no-preference){.blk,.card{transition:opacity .15s,border-color .15s}}
+
+/* Flikar */
+.tabs{display:flex;gap:2px;border-bottom:2px solid var(--line);margin-top:-6px}
+.tabs button{border:0;background:transparent;padding:8px 14px 9px;font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px}
+.tabs button:hover{color:var(--fg)}
+.tabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--accent)}
+.tabs button .n{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:0;color:var(--muted);margin-left:6px}
+/* Leveranser */
+.lv-top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.lv-search{border:1px solid var(--line);border-radius:6px;padding:7px 10px;background:var(--surface);min-width:min(280px,100%);font-size:14px}
+.lv-jump{display:flex;flex-wrap:wrap;gap:6px}
+.lv-jump a{text-decoration:none;color:inherit}
+.lv-list{display:flex;flex-direction:column;gap:14px}
+.lv{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--c);border-radius:8px;overflow:hidden;scroll-margin-top:12px}
+.lv>summary{list-style:none;cursor:pointer;padding:12px 14px;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px}
+.lv>summary::-webkit-details-marker{display:none}
+.lv>summary::before{content:"▸";color:var(--muted);font-size:12px;transition:transform .15s;display:inline-block}
+.lv[open]>summary::before{transform:rotate(90deg)}
+.lv>summary b{font-family:var(--display);font-size:22px;font-weight:600;letter-spacing:.02em;line-height:1.1}
+.lv .lm{display:flex;flex-wrap:wrap;gap:4px 14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.lv .lm .lev{color:var(--fg);font-weight:500}
+.lv .lm a{color:var(--accent);text-decoration:none;font-weight:500} .lv .lm a:hover{text-decoration:underline}
+.lv .lnote{padding:0 14px 8px;font-size:12.5px;color:var(--muted)}
+.lv .tw{overflow-x:auto;border-top:1px solid var(--line)}
+.lv table{border-collapse:collapse;width:100%;font-size:13px}
+.lv th{position:sticky;top:0;text-align:left;font-family:var(--mono);font-size:10.5px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);background:var(--surface2);padding:7px 10px;white-space:nowrap}
+.lv td{padding:7px 10px;border-top:1px solid var(--line);vertical-align:top}
+.lv td.mono{font-family:var(--mono);font-size:12px;white-space:nowrap}
+.lv td.long{min-width:240px;max-width:460px;color:var(--muted)}
+.lv td.num{text-align:right;font-variant-numeric:tabular-nums}
+.lv tr.grp td{background:color-mix(in srgb,var(--c) 10%,var(--surface));font-weight:600;font-size:12px;letter-spacing:.02em;border-top:1px solid var(--line)}
+.lv tr.grp td span{font-family:var(--mono);font-weight:400;color:var(--muted);margin-left:8px}
+.lv tbody tr:not(.grp):hover td{background:color-mix(in srgb,var(--fg) 3%,transparent)}
+.lv mark{background:color-mix(in srgb,var(--warn) 30%,transparent);color:inherit;border-radius:2px}
+.lv-missing{font-size:13px;color:var(--muted);border:1px dashed var(--line);border-radius:8px;padding:12px 14px;line-height:1.6}
+.lv-missing b{color:var(--fg);font-weight:600}
+@media print{.tabs,.lv-top,#v-plan,header .bar{display:none!important}.lv{break-inside:avoid;border-color:#999}.lv>summary::before{display:none}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Crosby Produktionsplan<small id="sub">Beläggning per person · FM/EM · delad med teamet</small></h1>
+    <div class="bar"><span id="note" class="note" role="status"></span></div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Vy">
+    <button type="button" role="tab" id="t-plan" data-tab="plan" aria-controls="v-plan" aria-selected="true">Planering</button>
+    <button type="button" role="tab" id="t-lev" data-tab="lev" aria-controls="v-lev" aria-selected="false">Leveranser<span class="n" id="levN"></span></button>
+  </nav>
+
+  <section id="v-lev" role="tabpanel" aria-labelledby="t-lev" hidden>
+    <div class="sechead lv-top"><div class="lv-jump" id="levJump"></div><input type="search" class="lv-search" id="levQ" placeholder="Sök filnamn, format, land…" aria-label="Sök i leveranslistorna"></div>
+    <div class="lv-list" id="levList"></div>
+  </section>
+
+  <div id="v-plan" role="tabpanel" aria-labelledby="t-plan" style="display:flex;flex-direction:column;gap:22px">
+  <section aria-labelledby="h-pipe">
+    <div class="sechead"><h2 id="h-pipe">Pipeline</h2><button class="btn primary" id="newProj" type="button">+ Ny produktion</button></div>
+    <div class="pipe"><div class="phases" id="phases"></div></div>
+  </section>
+
+  <section aria-labelledby="h-grid">
+    <div class="sechead">
+      <h2 id="h-grid">Beläggning</h2>
+      <div class="bar">
+        <div class="seg"><button type="button" id="prev" aria-label="Föregående vecka">←</button><button type="button" id="today">Idag</button><button type="button" id="next" aria-label="Nästa vecka">→</button></div>
+        <div class="seg" id="weeks"><button type="button" data-w="1">1 v</button><button type="button" data-w="2">2 v</button><button type="button" data-w="3">3 v</button><button type="button" data-w="4">4 v</button><button type="button" data-w="6">6 v</button><button type="button" data-w="8">8 v</button></div>
+        <span class="range" id="range"></span>
+        <label class="toggle" title="Visar alla avstämningar och döljer resurserna"><input type="checkbox" id="showMs"> Avstämningsvy</label>
+      </div>
+    </div>
+    <div class="sechead"><div class="legend" id="legend"></div><span class="hint">Dra ett projekt hit (övre FM, mitten heldag, nedre EM) · dra i blockets kant för att förlänga över fler dagar · dra blocket för att flytta, Alt kopierar · <b style="font-style:italic">streckat</b> = preliminärt · <b>grått</b> = frånvaro</span></div>
+    <div class="gridwrap"><div class="grid" id="grid"></div></div>
+  </section>
+  </div>
+</div>
+<div id="layer"></div>
+<div id="toast" class="toast" hidden></div>
+<div id="tip" class="tipbox" hidden></div>
+
+<script>
+const PHASES=["Uppstart","Pre-prod","Produktion","Post / VFX","Korr & leverans","Löpande"];
+const PARTS={full:"Heldag",am:"FM",pm:"EM"}, W={full:1,am:.5,pm:.5};
+const DAYN=["sön","mån","tis","ons","tor","fre","lör"];
+const MON=["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"];
+const S={projects:{},people:{},blocks:{},absence:{}};
+let db=null;
+const view={start:null,weeks:3,focus:null};
+let weeksPref=3; try{const w=+localStorage.getItem("cp_weeks"); if(w>=1&&w<=8) weeksPref=w}catch(e){}
+view.weeks=weeksPref;
+let showMs=false; try{showMs=localStorage.getItem("cp_ms")==="1"}catch(e){}
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad=n=>String(n).padStart(2,"0");
+const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parse=s=>{const[y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d)};
+const addD=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+const mondayOf=d=>{const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());const k=(x.getDay()+6)%7;return addD(x,-k)};
+const isoWeek=d=>{const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const n=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-n);const y=new Date(Date.UTC(t.getUTCFullYear(),0,1));return Math.ceil(((t-y)/864e5+1)/7)};
+const nice=s=>{if(!s)return"";const d=parse(s);return `${d.getDate()} ${MON[d.getMonth()]}`};
+const fmtD=n=>String(Math.round(n*10)/10).replace(".",",");
+const TODAY=iso(new Date());
+const todayStart=()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate())};
+view.start=todayStart();
+const workdaysUntil=s=>{let a=parse(TODAY),b=parse(s),n=0,sign=b>=a?1:-1;if(sign<0)[a,b]=[b,a];while(a<b){a=addD(a,1);const g=a.getDay();if(g&&g<6)n++}return n*sign};
+const sorted=col=>Object.entries(S[col]).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order??99)-(b.order??99)||String(a.name).localeCompare(b.name));
+const activeProjects=()=>sorted("projects").filter(p=>!p.archived);
+const HEX=/^#[0-9a-f]{6}$/i;
+const ink=p=>{const c=p?.color;if(typeof c==="string"&&HEX.test(c)){const n=parseInt(c.slice(1),16);return (0.299*(n>>16&255)+0.587*(n>>8&255)+0.114*(n&255))>150?"#111":"#fff"}return"var(--bg)"};
+const pc=p=>typeof p?.color==="string"&&HEX.test(p.color)?p.color:`var(--p${(+p?.color||0)%9})`;
+
+function toast(t,undo){const el=$("#toast");el.textContent=t;
+  if(undo){const b=document.createElement("button");b.type="button";b.textContent="Ångra";b.onclick=()=>{undo();el.hidden=true};el.appendChild(b)}
+  el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,undo?6000:2600)}
+function setNote(t){$("#note").textContent=t}
+
+async function put(col,id,data){S[col]={...S[col],[id]:data};render();if(!db)return;
+  try{await db.collection(col).doc(id).set(data)}catch(e){toast(e?.code==="invalid_argument"?"Du har inte behörighet att ändra planeringen.":e?.code==="quota_exceeded"?"Planeringen är full – ta bort gamla block.":"Kunde inte spara. Försök igen.")}}
+async function del(col,id){const n={...S[col]};delete n[id];S[col]=n;render();if(!db)return;
+  try{await db.collection(col).doc(id).delete()}catch(e){toast("Kunde inte ta bort. Försök igen.")}}
+const nid=p=>p+"-"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+
+/* ---------- Pipeline ---------- */
+const isDel=t=>/^leverans/i.test(t||"");
+const msOf=p=>{const l=(p.milestones||[]).slice();if(p.delivery&&!l.some(m=>m.d===p.delivery&&isDel(m.t)))l.push({d:p.delivery,t:"Leverans"});return l.sort((a,b)=>a.d.localeCompare(b.d))};
+function projStats(p){
+  let booked=0;for(const b of Object.values(S.blocks))if(b.projectId===p.id)booked+=W[b.part]||0;
+  const next=msOf(p).find(m=>m.d>=TODAY&&!(m.d===p.delivery&&isDel(m.t)));
+  return{booked,next};
+}
+function renderPipeline(){
+  const ps=activeProjects();
+  $("#phases").innerHTML=PHASES.map((ph,i)=>{
+    const list=ps.filter(p=>(p.phase??0)===i);
+    return `<div class="phase"><h3><span>${esc(ph)}</span><span>${list.length||""}</span></h3>${list.map(p=>{
+      const s=projStats(p);const left=p.delivery?workdaysUntil(p.delivery):null;
+      const own=p.owner&&S.people[p.owner]?S.people[p.owner].name.split(" ")[0]:"";
+      return `<div role="button" tabindex="0" draggable="true" class="card" style="--c:${pc(p)}" data-proj="${esc(p.id)}" data-dragproj="${esc(p.id)}" data-tip="${esc(p.id)}">
+        <span class="nm"><b>${esc(p.name)}</b><span class="code">${esc(p.code||"")}</span></span>
+        ${p.status?`<span class="st">${esc(p.status)}</span>`:""}
+        ${p.waiting?`<span class="wait">Väntar: ${esc(p.waiting)}</span>`:""}
+        <span class="meta">
+          <span class="lev">${p.delivery?`Lev ${nice(p.delivery)}${left!=null&&left>=0?` · ${left} d`:""}`:"Lev TBC"}</span>
+          ${s.next?`<span title="${esc(s.next.t)}">Nästa ${s.next.d===TODAY?"idag":nice(s.next.d)}</span>`:""}
+          ${p.budget&&s.booked>p.budget?`<span class="over">Över budget</span>`:""}
+          ${p.sheet&&/^https:\/\/(docs|drive)\.google\.com\//.test(p.sheet)?`<a class="shl" href="${esc(p.sheet)}" target="_blank" rel="noopener">Tidsplan ↗</a>`:""}
+        </span></div>`}).join("")||`<div class="empty">Inga produktioner</div>`}
+      ${i===0?`<button type="button" class="addcard" data-newproj="0">+ Lägg till</button>`:""}</div>`}).join("");
+}
+
+/* ---------- Frånvaro, beläggning, risk ---------- */
+function absMap(){const m={};for(const [id,a] of Object.entries(S.absence||{})){if(!a.from||!a.to)continue;let d=parse(a.from);const e=parse(a.to);let g=0;
+  while(d<=e&&g<400){g++;const k=iso(d),wd=d.getDay();if(wd&&wd<6){const who=a.personId||"*";(m[who+"|"+k]??=[]).push({id,...a})}d=addD(d,1)}}return m}
+function absFor(am,pid,date){return [...(am[pid+"|"+date]||[]),...(am["*|"+date]||[])]}
+const absW=a=>a.part==="am"||a.part==="pm"?.5:1;
+function prevWorkdays(dateStr,n){const out=[dateStr];let d=parse(dateStr);while(out.length<=n){d=addD(d,-1);const g=d.getDay();if(g&&g<6)out.push(iso(d))}return out}
+function deliveryRisk(idx,am){const risk={};
+  for(const p of activeProjects()){if(!p.delivery)continue;const win=prevWorkdays(p.delivery,3);const hits=[];
+    const ppl=new Set();for(const b of Object.values(S.blocks))if(b.projectId===p.id&&win.includes(b.date))ppl.add(b.personId);
+    for(const pid of ppl){const bad=[];for(const d of win){const load=(idx[pid+"|"+d]||[]).reduce((a,b)=>a+(W[b.part]||0),0)+absFor(am,pid,d).reduce((a,x)=>a+absW(x),0);
+        const absent=absFor(am,pid,d).length&&(idx[pid+"|"+d]||[]).some(b=>b.projectId===p.id);
+        if(absent)bad.push(d)}
+      if(bad.length)hits.push(`${S.people[pid]?.name||pid} är bokad men frånvarande ${bad.sort().map(x=>nice(x)).join(", ")}`)}
+    if(hits.length)risk[p.delivery+"|"+p.id]=hits}
+  return risk}
+function weekLoads(pid,ds,idx,am){const wk=[];let cur=null;
+  for(const d of ds){const w=isoWeek(d);if(!cur||cur.w!==w){if(wk.length>=4)break;cur={w,booked:0,cap:0,over:0};wk.push(cur)}
+    const k=iso(d);const ab=absFor(am,pid,k).reduce((a,x)=>a+absW(x),0);cur.cap+=Math.max(0,1-ab);
+    const dl=(idx[pid+"|"+k]||[]).reduce((a,b)=>a+(W[b.part]||0),0);cur.booked+=dl;if(dl+ab>1.001)cur.over++}
+  return wk}
+
+/* ---------- Grid ---------- */
+function days(w=view.weeks){const out=[];for(let i=0;i<w*7;i++){const d=addD(view.start,i);const g=d.getDay();if(g&&g<6)out.push(d)}return out}
+function renderGrid(){
+  const RW=Math.max(view.weeks,12), ds=days(RW), vis=days(view.weeks), ps=sorted("people").sort((a,b)=>(a.kind==="resource")-(b.kind==="resource")), projs=activeProjects();
+  const wrapEl=$("#grid").parentElement;
+  const nameW=parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--namew"))||168;
+  const minW=view.weeks>4?50:view.weeks>2?66:92;
+  const colW=Math.max(minW,Math.floor(((wrapEl.clientWidth||1200)-nameW-2)/vis.length));
+  view.colW=colW;view.nVis=vis.length;view.ds=ds;
+  updRange();
+  document.querySelectorAll("#weeks button").forEach(b=>b.setAttribute("aria-pressed",+b.dataset.w===view.weeks));
+  $("#legend").innerHTML=projs.map(p=>`<div role="button" tabindex="0" draggable="true" class="chip" style="--c:${pc(p)}" data-focus="${esc(p.id)}" data-dragproj="${esc(p.id)}" aria-pressed="${view.focus===p.id}" title="Klicka för att markera · dra till en ruta för att blocka"><i data-colorfor="${esc(p.id)}" title="Byt färg"></i>${esc(p.name)}</div>`).join("");
+
+  const idx={};for(const[id,b]of Object.entries(S.blocks)){(idx[b.personId+"|"+b.date]??=[]).push({id,...b})}
+  const am=absMap(), risk=deliveryRisk(idx,am);
+  const riskDay={};for(const k in risk)riskDay[k.split("|")[0]]=true;
+  const msBy={};for(const p of projs)for(const m of msOf(p)){const del=p.delivery===m.d&&isDel(m.t);if(del||showMs)(msBy[m.d]??=[]).push({p,m,del})}
+  for(const k in msBy)msBy[k].sort((a,b)=>b.del-a.del);
+  const avBy={};if(showMs)for(const k in msBy){const a=msBy[k].find(x=>!x.del);if(a)avBy[k]=a.p}
+  $("#showMs").checked=showMs;
+
+  const delBy={};for(const p of projs)if(p.delivery)delBy[p.delivery]??=p;
+  const grid=$("#grid");
+  grid.style.gridTemplateColumns=`var(--namew) repeat(${ds.length},${colW}px)`;
+  grid.classList.toggle("dim",!!view.focus);
+  let h=`<div class="g-corner">Person</div>`;
+  for(const d of ds){const s=iso(d),mon=d.getDay()===1;const dp=delBy[s],ap=!dp&&avBy[s];h+=`<div class="g-h${d===ds[0]?" first":""}${mon?" mon":""}${s===TODAY?" today":""}${dp?" dl":""}${riskDay[s]?" risk":""}${ap?" avd":""}"${dp?` style="--dc:${pc(dp)};--dink:${ink(dp)}" title="Leverans: ${esc(dp.name)}"`:ap?` style="--ac:${pc(ap)}"`:""}><span class="wk">${mon||d===ds[0]?"v"+isoWeek(d):""}</span><span class="dn">${DAYN[d.getDay()]}</span><span class="dn">${d.getDate()}/${d.getMonth()+1}</span><span class="tg">${s===TODAY&&dp?"Idag·Lev":s===TODAY?"Idag":dp?(riskDay[s]?"Lev !":"Lev"):""}</span></div>`}
+  h+=`<div class="g-mlabel">${showMs?"Avstämning":"Leverans"}</div>`;
+  for(const d of ds){const s=iso(d);h+=`<div class="g-m${d.getDay()===1?" mon":""}${s===TODAY?" today":""}${showMs?" tall ov":""}">${(msBy[s]||[]).map(({p,m,del})=>`<span role="button" tabindex="0" data-msday="${s}" class="ms ${del?"del":"av"}${del&&risk[s+"|"+p.id]?" risk":""}${view.focus===p.id?" focus":""}" style="--c:${pc(p)};--ink:${ink(p)}" data-tip="${esc(p.id)}" data-tipd="${s}" data-tipt="${esc(m.t)}" data-tipdel="${del?1:""}" data-tiprisk="${del&&risk[s+"|"+p.id]?esc(risk[s+"|"+p.id].join("; ")):""}" aria-label="${esc(p.name)} · ${esc(m.t)}">${esc(p.code||p.name)}</span>`).join("")}</div>`}
+  const solo=(list,b)=>!list.some(x=>x!==b&&(b.part==="full"||x.part==="full"||x.part===b.part));
+  const runs=(list,b)=>!!list&&list.some(x=>x.projectId===b.projectId&&x.part===b.part&&solo(list,x));
+  grid.classList.toggle("ovmode",showMs);
+  let sepDone=false;
+  for(const per of ps){
+    const isRes=per.kind==="resource";
+    if(isRes&&!sepDone){h+=`<div class="g-sep"><span>Resurser · studio, farm, frilans</span></div>`;sepDone=true}
+    const wls=weekLoads(per.id,ds,idx,am).map(w=>{const pct=w.cap?w.booked/w.cap:(w.booked?2:0);const cls=pct>1.001?"bad":pct>.85?"warn":"";
+      return `<span class="wl ${cls}" title="v${w.w}: ${fmtD(w.booked)} av ${fmtD(w.cap)} tillgängliga dagar (${Math.round(pct*100)} %)"><b><i style="--w:${Math.min(100,Math.round(pct*100))}%"></i></b>${Math.round(pct*100)}%</span>`}).join("");
+    h+=`<button type="button" draggable="true" class="g-n${per.bottleneck?" row-bottle":""}${isRes?" res":""}" data-person="${esc(per.id)}" title="Klicka för att ändra · dra för att flytta raden"><span class="pn">${esc(per.name)}${per.bottleneck?`<span class="flag">Flaskhals</span>`:""}</span><span class="pr">${esc(per.role||"")}</span><span class="wls">${wls}</span></button>`;
+    ds.forEach((d,di)=>{const s=iso(d);const bl=(idx[per.id+"|"+s]||[]).sort((a,b)=>"full am pm".indexOf(a.part)-"full am pm".indexOf(b.part));
+      const abs=absFor(am,per.id,s);
+      const load=bl.reduce((a,b)=>a+(W[b.part]||0),0)+abs.reduce((a,x)=>a+absW(x),0);
+      const dp=delBy[s],ap=!dp&&avBy[s];h+=`<div class="g-c${abs.length?" absday":""}${d.getDay()===1?" mon":""}${s===TODAY?" today":""}${per.bottleneck?" row-bottle":""}${dp?" dl":""}${ap?" avd":""}"${dp?` style="--dc:${pc(dp)}"`:ap?` style="--ac:${pc(ap)}"`:""} data-p="${esc(per.id)}" data-d="${s}">
+        <button type="button" class="hit am" data-add="am" aria-label="Blocka FM ${esc(per.name)} ${s}"></button><button type="button" class="hit pm" data-add="pm" aria-label="Blocka EM ${esc(per.name)} ${s}"></button>
+        ${abs.map(a=>`<div class="ab ${a.part==="am"||a.part==="pm"?a.part:"full"}" title="${esc((a.type||"Frånvaro")+(a.note?" · "+a.note:"")+" · från Monday Frånvaro")}">${esc(a.type||"Frånvaro")}</div>`).join("")}
+        ${bl.map(b=>{const p=S.projects[b.projectId];const pp=p?{...p,id:b.projectId}:null;
+          const me=solo(bl,b),cl=me&&di>0&&runs(idx[per.id+"|"+iso(ds[di-1])],b),cr=me&&di<ds.length-1&&runs(idx[per.id+"|"+iso(ds[di+1])],b);
+          return `<div role="button" tabindex="0" draggable="true" class="blk ${b.part}${b.tent?" tent":""}${cl?" cl":""}${cr?" cr":""}${b.note?" has-note":""}${view.focus===b.projectId?" focus":""}" style="--c:${pc(pp)}" data-blk="${esc(b.id)}" title="${esc((p?.name||"Okänt projekt")+" · "+PARTS[b.part]+(b.note?" · "+b.note:"")+(b.tent?" · preliminärt":"")+(b.src==="monday"?" · från Monday":""))}"><span>${esc(p?.code||p?.name||"?")}</span>${b.part!=="full"?`<em>${PARTS[b.part]}</em>`:b.note?`<em>${esc(b.note)}</em>`:""}<button type="button" class="rm" data-rm="${esc(b.id)}" draggable="false" aria-label="Ta bort block" title="Ta bort">−</button><i class="rh l" data-rh="l" aria-hidden="true"></i><i class="rh r" data-rh="r" aria-hidden="true"></i></div>`}).join("")}
+        ${bl.length?`<button type="button" class="plus" data-add="${bl.some(b=>b.part==="am"||b.part==="full")?"pm":"am"}" aria-label="Lägg till block">+</button>`:""}
+</div>`})
+  }
+  h+=`<div class="addrow"><button type="button" class="btn ghost" id="addPerson">+ Person</button></div>`;
+  grid.innerHTML=h;
+}
+function updRange(){const w=$("#grid").parentElement,ds=view.ds;if(!ds||!ds.length)return;
+  const i=Math.min(ds.length-1,Math.max(0,Math.round(w.scrollLeft/(view.colW||1)))),j=Math.min(ds.length-1,i+view.nVis-1),a=ds[i],b=ds[j];
+  $("#range").textContent=`v${isoWeek(a)}${isoWeek(a)!==isoWeek(b)?"–"+isoWeek(b):""} · ${nice(iso(a))} – ${nice(iso(b))} ${b.getFullYear()}`}
+/* ---------- Leveranser ---------- */
+let tab="plan"; try{if(localStorage.getItem("cp_tab")==="lev")tab="lev"}catch(e){}
+if(location.hash==="#leveranser")tab="lev";
+let levQ="";
+const LONG=/kommentar|innehåll|vo-manus/i, MONO=/filnamn|format|upplösning|längd|deadline|leverans/i;
+const levRows=d=>(d?.groups||[]).reduce((a,g)=>a+(g.rows||[]).length,0);
+function levCount(d){const i=(d?.cols||[]).findIndex(c=>/^antal$/i.test(c));
+  if(i<0)return levRows(d);let n=0;for(const g of d.groups||[])for(const r of g.rows||[])n+=+(r.c?.[i])||0;return n}
+function hl(s,q){const t=esc(s);if(!q)return t;const i=String(s).toLowerCase().indexOf(q);if(i<0)return t;
+  return esc(String(s).slice(0,i))+"<mark>"+esc(String(s).slice(i,i+q.length))+"</mark>"+esc(String(s).slice(i+q.length))}
+function setTab(t){tab=t;try{localStorage.setItem("cp_tab",t)}catch(e){}
+  document.querySelectorAll(".tabs [data-tab]").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===t));
+  $("#v-plan").style.display=t==="plan"?"flex":"none";$("#v-lev").hidden=t!=="lev";
+  if(t==="plan")renderGrid();else renderDeliveries()}
+function renderDeliveries(){
+  const ps=activeProjects(), withL=ps.filter(p=>levRows(p.deliveries)), without=ps.filter(p=>!levRows(p.deliveries));
+  $("#levN").textContent=withL.length?String(withL.length):"";
+  if(tab!=="lev")return;
+  const q=levQ.trim().toLowerCase();
+  withL.sort((a,b)=>(a.delivery||"9999").localeCompare(b.delivery||"9999"));
+  $("#levJump").innerHTML=withL.map(p=>`<a class="chip" style="--c:${pc(p)}" href="#lv-${esc(p.id)}" data-jump="${esc(p.id)}"><i></i>${esc(p.name)}</a>`).join("");
+  let shown=0;
+  const html=withL.map(p=>{const d=p.deliveries,cols=d.cols||[];
+    const groups=(d.groups||[]).map(g=>({...g,rows:(g.rows||[]).filter(r=>!q||(r.c||[]).some(x=>String(x).toLowerCase().includes(q))||String(g.t||"").toLowerCase().includes(q)||String(p.name).toLowerCase().includes(q))})).filter(g=>g.rows.length);
+    const nRows=groups.reduce((a,g)=>a+g.rows.length,0);if(q&&!nRows)return"";shown++;
+    const left=p.delivery?workdaysUntil(p.delivery):null;
+    const cls=cols.map(c=>LONG.test(c)?"long":/^antal$/i.test(c)?"num":MONO.test(c)?"mono":"");
+    const body=groups.map(g=>`${g.t?`<tr class="grp"><td colspan="${cols.length}">${hl(g.t,q)}<span>${g.rows.length} rader</span></td></tr>`:""}${g.rows.map(r=>`<tr>${cols.map((_,i)=>`<td class="${cls[i]}">${hl(r.c?.[i]??"",q)}</td>`).join("")}</tr>`).join("")}`).join("");
+    const n=levCount(d);
+    return `<details class="lv" id="lv-${esc(p.id)}" style="--c:${pc(p)}" open>
+      <summary><b>${esc(p.name)}</b><span class="lm">
+        <span class="lev">${p.delivery?`Lev ${DAYN[parse(p.delivery).getDay()]} ${nice(p.delivery)}${left!=null&&left>=0?` · ${left} arbetsdagar kvar`:""}`:"Lev TBC"}</span>
+        <span>${n} ${n===1?"leverans":"leveranser"}${q&&nRows!==levRows(d)?` · ${nRows} träffar`:""}</span>
+        ${p.client?`<span>${esc(p.client)}</span>`:""}
+        ${p.sheet&&/^https:\/\/(docs|drive)\.google\.com\//.test(p.sheet)?`<a href="${esc(p.sheet)}" target="_blank" rel="noopener">Tidsplan ↗</a>`:""}
+        ${d.synced?`<span>hämtad ${nice(d.synced)}</span>`:""}</span></summary>
+      ${d.note?`<div class="lnote">${esc(d.note)}</div>`:""}
+      <div class="tw"><table><thead><tr>${cols.map(c=>`<th scope="col">${esc(c)}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div></details>`}).join("");
+  const miss=without.length&&!q?`<div class="lv-missing"><b>Ingen leveranslista än:</b> ${without.map(p=>esc(p.name)).join(" · ")}<br>Listan hämtas från produktionens tidsplan i Drive (flik eller avsnitt med leveranser/format).</div>`:"";
+  $("#levList").innerHTML=(html||(q?`<div class="empty">Inga träffar på ”${esc(levQ)}”.</div>`:`<div class="empty">Inga leveranslistor än.</div>`))+miss;
+}
+document.addEventListener("click",e=>{const tb=e.target.closest?.(".tabs [data-tab]");if(tb){setTab(tb.dataset.tab);return}
+  const j=e.target.closest?.("[data-jump]");if(j){e.preventDefault();const el=document.getElementById("lv-"+j.dataset.jump);if(el){el.open=true;el.scrollIntoView({behavior:"smooth",block:"start"})}}},true);
+document.addEventListener("input",e=>{if(e.target.id==="levQ"){levQ=e.target.value;renderDeliveries()}});
+function render(){renderPipeline();if(tab==="plan")renderGrid();renderDeliveries()}
+setTimeout(()=>setTab(tab),0);
+
+/* ---------- Overlays ---------- */
+function close(){$("#layer").innerHTML=""}
+function openPop(html,anchor){
+  $("#layer").innerHTML=`<div class="scrim" data-close></div><div class="pop" role="dialog" aria-modal="true">${html}</div>`;
+  const pop=$("#layer .pop");
+  if(anchor&&innerWidth>640){const r=anchor.getBoundingClientRect();const w=pop.offsetWidth,hh=pop.offsetHeight;
+    let x=Math.min(Math.max(16,r.left),innerWidth-w-16),y=r.bottom+6;if(y+hh>innerHeight-16)y=Math.max(16,r.top-hh-6);pop.style.left=x+"px";pop.style.top=y+"px"}
+  const f=pop.querySelector("[autofocus]")||pop.querySelector("input,button");f&&f.focus();return pop}
+function openDrawer(html){$("#layer").innerHTML=`<div class="scrim" data-close></div><div class="drawer" role="dialog" aria-modal="true">${html}</div>`;const f=$("#layer .drawer input");f&&f.focus();return $("#layer .drawer")}
+addEventListener("keydown",e=>{if(e.key==="Escape")close()});
+
+function blockEditor({id,personId,date,part,projectId,note,tent},anchor){
+  const projs=activeProjects();if(!projs.length){toast("Lägg till en produktion först.");return}
+  const st={part,projectId:projectId||view.focus||projs[0].id};
+  const per=S.people[personId];
+  const pop=openPop(`<div><h4>${id?"Ändra block":"Blocka tid"}</h4><div class="sub">${esc(per?.name||"")} · ${DAYN[parse(date).getDay()]} ${nice(date)}</div></div>
+    <div class="pick" id="pp">${projs.map(p=>`<button type="button" style="--c:${pc(p)}" data-pid="${esc(p.id)}" aria-pressed="${st.projectId===p.id}"><i></i>${esc(p.name)}</button>`).join("")}</div>
+    <div class="seg" id="pt">${Object.entries(PARTS).map(([k,v])=>`<button type="button" data-part="${k}" aria-pressed="${st.part===k}">${v}</button>`).join("")}</div>
+    <label class="f">Notering (valfri)<input id="bn" value="${esc(note||"")}" placeholder="t.ex. korrfix, render, på set"></label>
+    <label class="chk"><input type="checkbox" id="btent"${tent?" checked":""}> Preliminär bokning (inte bekräftad än)</label>
+    <div class="two"><label class="f">Person<select id="bp">${sorted("people").map(p=>`<option value="${esc(p.id)}"${p.id===personId?" selected":""}>${esc(p.name)}</option>`).join("")}</select></label>
+    <label class="f">Datum<input type="date" id="bd" value="${date}"></label></div>
+    <div class="acts">${id?`<button type="button" class="btn danger" id="bdel">Ta bort</button>`:"<span></span>"}<div><button type="button" class="btn" data-close>Avbryt</button><button type="button" class="btn primary" id="bsave">${id?"Spara":"Blocka"}</button></div></div>`,anchor);
+  pop.querySelector("#pp").onclick=e=>{const b=e.target.closest("[data-pid]");if(!b)return;st.projectId=b.dataset.pid;pop.querySelectorAll("#pp button").forEach(x=>x.setAttribute("aria-pressed",x===b))};
+  pop.querySelector("#pt").onclick=e=>{const b=e.target.closest("[data-part]");if(!b)return;st.part=b.dataset.part;pop.querySelectorAll("#pt button").forEach(x=>x.setAttribute("aria-pressed",x===b))};
+  pop.querySelector("#bsave").onclick=()=>{const d=pop.querySelector("#bd").value||date;
+    const pid=pop.querySelector("#bp").value;
+    if(absFor(absMap(),pid,d).length)toast(`${S.people[pid]?.name||""} är frånvarande ${nice(d)} enligt Monday.`);
+    put("blocks",id||nid("b"),{...(id?S.blocks[id]:{}),personId:pid,date:d,part:st.part,projectId:st.projectId,note:pop.querySelector("#bn").value.trim(),tent:pop.querySelector("#btent").checked});close()};
+  const dl=pop.querySelector("#bdel");if(dl)dl.onclick=()=>{del("blocks",id);close()};
+}
+
+function orderedPeople(){return sorted("people").sort((a,b)=>(a.kind==="resource")-(b.kind==="resource"))}
+function movePerson(id,targetId,after){const list=orderedPeople().map(p=>p.id).filter(x=>x!==id);
+  let i=targetId?list.indexOf(targetId):list.length;if(i<0)i=list.length;if(after)i++;list.splice(i,0,id);
+  list.forEach((pid,n)=>{const p=S.people[pid];if(p&&p.order!==n+1)put("people",pid,{...p,order:n+1})})}
+function personEditor(id,anchor){
+  const p=id?S.people[id]:{name:"",role:"",bottleneck:false};
+  const pop=openPop(`<h4>${id?"Person":"Ny person"}</h4>
+    <label class="f">Namn<input id="pn" value="${esc(p.name)}" autofocus></label>
+    <label class="f">Roll<input id="pr" value="${esc(p.role||"")}" placeholder="t.ex. Animatör VFX"></label>
+    <label class="chk"><input type="checkbox" id="pb"${p.bottleneck?" checked":""}> Flaskhals – markera raden</label>
+    <label class="chk"><input type="checkbox" id="pk"${p.kind==="resource"?" checked":""}> Resurs, inte person (studio, renderfarm, frilans)</label>
+    ${id?`<div class="seg" style="align-self:flex-start"><button type="button" id="pup">↑ Flytta upp</button><button type="button" id="pdn">↓ Flytta ner</button></div>`:""}
+    <div class="acts">${id?`<button type="button" class="btn danger" id="pdel">Ta bort person</button>`:"<span></span>"}<div><button type="button" class="btn" data-close>Avbryt</button><button type="button" class="btn primary" id="psave">Spara</button></div></div>`,anchor);
+  pop.querySelector("#psave").onclick=()=>{const name=pop.querySelector("#pn").value.trim();if(!name){toast("Skriv ett namn.");return}
+    put("people",id||nid("u"),{...p,name,role:pop.querySelector("#pr").value.trim(),bottleneck:pop.querySelector("#pb").checked,kind:pop.querySelector("#pk").checked?"resource":"person",order:p.order??(sorted("people").length+1)});close()};
+  const up=pop.querySelector("#pup"),dn=pop.querySelector("#pdn");
+  if(up){const mv=dir=>{const l=orderedPeople().map(p=>p.id),i=l.indexOf(id),j=i+dir;if(j<0||j>=l.length)return;movePerson(id,l[j],dir>0);close()};up.onclick=()=>mv(-1);dn.onclick=()=>mv(1)}
+  const d=pop.querySelector("#pdel");if(d){let armed=false;d.onclick=()=>{if(!armed){armed=true;d.textContent="Klicka igen – tar även bort personens block";return}
+    for(const[bid,b]of Object.entries(S.blocks))if(b.personId===id)del("blocks",bid);del("people",id);close()}}
+}
+
+function projectEditor(id,phase){
+  const p=id?{...S.projects[id]}:{name:"",code:"",client:"",color:(()=>{const used=new Set(Object.values(S.projects).map(x=>x.color));for(let i=0;i<8;i++)if(!used.has(i))return i;return Object.keys(S.projects).length%8})(),phase:phase??0,status:"",waiting:"",delivery:"",budget:null,owner:""};
+  let color=p.color??0;
+  const dr=openDrawer(`<div><h4>${id?esc(p.name):"Ny produktion"}</h4><div class="sub">${id?"Ändringar syns för alla direkt när du sparar":"Fyll i det du vet – resten kan vänta"}</div></div>
+    <div class="two"><label class="f">Namn<input id="fn" value="${esc(p.name)}"></label><label class="f">Kortnamn i grid<input id="fc" value="${esc(p.code||"")}" maxlength="8" placeholder="t.ex. KICKS"></label></div>
+    <label class="f">Kund / info<input id="fcl" value="${esc(p.client||"")}" placeholder="t.ex. 36 filmer SE/FI/NO"></label>
+    <div class="f" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:500">Färg<div class="sw" id="fsw">${[...Array(9)].map((_,i)=>`<button type="button" style="--c:var(--p${i})" data-c="${i}" aria-pressed="${color!==null&&typeof color!=="string"&&i===+color}" aria-label="Färg ${i+1}"></button>`).join("")}<label class="own" title="Egen färg" aria-pressed="${typeof color==="string"}" style="--own:${typeof color==="string"&&HEX.test(color)?color:"transparent"}"><input type="color" id="fcol" aria-label="Välj egen färg" value="${typeof color==="string"&&HEX.test(color)?color:"#3366cc"}"></label></div></div>
+    <div class="two"><label class="f">Fas<select id="fph">${PHASES.map((x,i)=>`<option value="${i}"${i===(p.phase??0)?" selected":""}>${x}</option>`).join("")}</select></label>
+    <label class="f">Ansvarig<select id="fo"><option value="">–</option>${sorted("people").map(u=>`<option value="${esc(u.id)}"${u.id===p.owner?" selected":""}>${esc(u.name)}</option>`).join("")}</select></label></div>
+    <label class="f">Status<textarea id="fs">${esc(p.status||"")}</textarea></label>
+    <label class="f">Väntar på (kund, material…)<input id="fw" value="${esc(p.waiting||"")}" placeholder="lämna tomt om inget"></label>
+    <label class="f">Tidsplan (länk till Google Kalkylark eller Excel i Drive)<input id="fsheet" type="url" value="${esc(p.sheet||"")}" placeholder="https://docs.google.com/spreadsheets/…"></label>
+    <div class="two"><label class="f">Leverans<input type="date" id="fd" value="${esc(p.delivery||"")}"></label><label class="f">Budget (dagar)<input type="number" step="0.5" min="0" id="fb" value="${p.budget??""}"></label></div>
+    ${id&&msOf(p).length?`<div class="f" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:500">Avstämningar och leverans<div class="mslist">${msOf(p).map(m=>`<div class="${m.d<TODAY?"past":""}${isDel(m.t)?" del":""}"><span>${DAYN[parse(m.d).getDay()]} ${nice(m.d)}</span>${esc(m.t)}</div>`).join("")}</div></div>`:""}
+    <label class="f">Ändra avstämningar – en per rad: ÅÅÅÅ-MM-DD text<textarea id="fm" style="min-height:110px;font-family:var(--mono);font-size:12px">${esc((p.milestones||[]).slice().sort((a,b)=>a.d.localeCompare(b.d)).map(m=>`${m.d} ${m.t}`).join("\n"))}</textarea></label>
+    <div class="acts">${id?`<div><button type="button" class="btn" id="farch">Arkivera</button><button type="button" class="btn danger" id="fdel">Ta bort</button></div>`:"<span></span>"}<div><button type="button" class="btn" data-close>Avbryt</button><button type="button" class="btn primary" id="fsave">Spara</button></div></div>`);
+  const own=dr.querySelector("#fsw .own");
+  dr.querySelector("#fsw").onclick=e=>{const b=e.target.closest("[data-c]");if(!b)return;color=+b.dataset.c;dr.querySelectorAll("#fsw button").forEach(x=>x.setAttribute("aria-pressed",x===b));own.setAttribute("aria-pressed","false")};
+  dr.querySelector("#fcol").addEventListener("input",e=>{color=e.target.value;own.style.setProperty("--own",color);own.setAttribute("aria-pressed","true");dr.querySelectorAll("#fsw button").forEach(x=>x.setAttribute("aria-pressed","false"))});
+  dr.querySelector("#fsave").onclick=()=>{const name=dr.querySelector("#fn").value.trim();if(!name){toast("Ge produktionen ett namn.");return}
+    const b=dr.querySelector("#fb").value;
+    const ms=dr.querySelector("#fm").value.split("\n").map(l=>l.trim()).filter(Boolean).map(l=>{const m=l.match(/^(\d{4}-\d{2}-\d{2})\s+(.*)$/);return m?{d:m[1],t:m[2]}:null}).filter(Boolean);
+    const sh=dr.querySelector("#fsheet").value.trim();
+    put("projects",id||nid("p"),{...p,milestones:ms,sheet:/^https:\/\/(docs|drive)\.google\.com\//.test(sh)?sh:"",name,code:dr.querySelector("#fc").value.trim().toUpperCase(),client:dr.querySelector("#fcl").value.trim(),color,
+      phase:+dr.querySelector("#fph").value,owner:dr.querySelector("#fo").value,status:dr.querySelector("#fs").value.trim(),waiting:dr.querySelector("#fw").value.trim(),
+      delivery:dr.querySelector("#fd").value,budget:b===""?null:+b,order:p.order??(Object.keys(S.projects).length+1)});close()};
+  if(id){dr.querySelector("#farch").onclick=()=>{put("projects",id,{...p,archived:true});close();toast("Arkiverad – blocken ligger kvar i griden.")};
+    const d=dr.querySelector("#fdel");let armed=false;d.onclick=()=>{if(!armed){armed=true;d.textContent="Klicka igen – tar även bort alla block";return}
+      for(const[bid,b]of Object.entries(S.blocks))if(b.projectId===id)del("blocks",bid);del("projects",id);close()}}
+}
+
+function dayPopover(day,anchor){
+  const items=[];for(const p of activeProjects())for(const m of msOf(p))if(m.d===day)items.push({p,m,del:p.delivery===m.d&&isDel(m.t)});
+  items.sort((a,b)=>b.del-a.del);if(!items.length)return;
+  const idx={};for(const[id,b]of Object.entries(S.blocks))(idx[b.personId+"|"+b.date]??=[]).push({id,...b});
+  const risk=deliveryRisk(idx,absMap());
+  const pop=openPop(`<div><h4>${DAYN[parse(day).getDay()]} ${nice(day)}</h4><div class="sub">v${isoWeek(parse(day))} · ${items.length} ${items.length>1?"händelser":"händelse"}</div></div>
+    <div class="daylist">${items.map(({p,m,del})=>`<div class="it${del?" del":""}" style="--c:${pc(p)}"><div><span class="tag">${del?"Leverans":"Avstämning"}</span><b>${esc(p.name)}</b><span>${esc(m.t)}</span>${del&&risk[day+"|"+p.id]?`<span class="risk">Risk: ${esc(risk[day+"|"+p.id].join("; "))}</span>`:""}</div><span></span><button type="button" class="btn" data-openproj="${esc(p.id)}">Öppna</button></div>`).join("")}</div>
+    <div class="acts"><span></span><button type="button" class="btn" data-close>Stäng</button></div>`,anchor);
+  pop.querySelectorAll("[data-openproj]").forEach(b=>b.onclick=()=>{close();projectEditor(b.dataset.openproj)})}
+function quickColor(id){const p=S.projects[id];if(!p)return;const inp=document.createElement("input");inp.type="color";
+  inp.value=typeof p.color==="string"&&HEX.test(p.color)?p.color:getComputedStyle(document.documentElement).getPropertyValue(`--p${(+p.color||0)%9}`).trim()||"#3366cc";
+  if(!HEX.test(inp.value))inp.value="#3366cc";
+  inp.style.cssText="position:fixed;left:50%;top:40%;opacity:0;width:1px;height:1px";document.body.appendChild(inp);
+  inp.addEventListener("change",()=>{put("projects",id,{...S.projects[id],color:inp.value});inp.remove()});
+  inp.addEventListener("blur",()=>setTimeout(()=>inp.remove(),300));inp.click()}
+
+function tipHTML(id,ms){const p=S.projects[id];if(!p)return"";const st=projStats({...p,id});const left=p.delivery?workdaysUntil(p.delivery):null;
+  const own=p.owner&&S.people[p.owner]?S.people[p.owner].name:"";const up=msOf(p).filter(m=>m.d>=TODAY&&!(ms&&m.d===ms.d&&m.t===ms.t)).slice(0,3);
+  const row=(k,v)=>v?`<div class="r"><span>${k}</span><span>${v}</span></div>`:"";
+  const who=ms?[...new Set(Object.values(S.blocks).filter(b=>b.projectId===id&&b.date===ms.d).map(b=>S.people[b.personId]?.name?.split(" ")[0]||b.personId))]:[];
+  const hd=ms?`<div class="msh"><span>${ms.del?"Leverans":"Avstämning"} · ${DAYN[parse(ms.d).getDay()]} ${nice(ms.d)}</span><b>${esc(ms.t)}</b>${ms.risk?`<em>Risk: ${esc(ms.risk)}</em>`:""}</div>`:"";
+  if(ms)return `<h5>${esc(p.name)}<small>${esc(p.code||"")}</small></h5>${hd}`;
+  return `<h5>${esc(p.name)}<small>${esc(p.code||"")}</small></h5>${hd}
+    ${ms?row("Bokade",esc(who.join(", "))):""}
+    ${row("Kund",esc(p.client||""))}${row("Status",esc(p.status||""))}${row("Väntar på",esc(p.waiting||""))}
+    ${row("Leverans",p.delivery?`${DAYN[parse(p.delivery).getDay()]} ${nice(p.delivery)}${left!=null&&left>=0?` · ${left} arbetsdagar kvar`:""}`:"Ej satt")}
+    ${row("Kommande",up.map(m=>`${nice(m.d)} · ${esc(m.t)}`).join("<br>"))}
+    ${row("Ansvarig",esc(own))}${row("Bokat",`${fmtD(st.booked)} dagar${p.budget?` av ${fmtD(p.budget)} i budget`:""}`)}
+    <div class="hint2">${ms?"Klicka för dagens alla händelser":"Klicka för att ändra · dra till griden för att blocka"}</div>`}
+{let t=0,cur=null;const box=$("#tip");
+ const hide=()=>{clearTimeout(t);cur=null;box.hidden=true};
+ document.addEventListener("pointerover",e=>{if(e.pointerType&&e.pointerType!=="mouse")return;const c=e.target.closest?.("[data-tip]");if(!c||c===cur)return;
+   cur=c;clearTimeout(t);t=setTimeout(()=>{const p=S.projects[c.dataset.tip];if(!p||drag)return;box.style.setProperty("--c",pc(p));box.innerHTML=tipHTML(c.dataset.tip,c.dataset.tipd?{d:c.dataset.tipd,t:c.dataset.tipt||"",del:!!c.dataset.tipdel,risk:c.dataset.tiprisk||""}:null);box.hidden=false;
+     const r=c.getBoundingClientRect(),w=box.offsetWidth,h=box.offsetHeight;let x=r.right+8;if(x+w>innerWidth-12)x=r.left-w-8;if(x<12)x=Math.max(12,Math.min(r.left,innerWidth-w-12));
+     let y=r.top;if(x>=r.left&&x<r.right)y=r.bottom+8;if(y+h>innerHeight-12)y=Math.max(12,innerHeight-h-12);box.style.left=x+"px";box.style.top=y+"px"},280)});
+ document.addEventListener("pointerout",e=>{const c=e.target.closest?.("[data-tip]");if(c&&!c.contains(e.relatedTarget))hide()});
+ document.addEventListener("dragstart",hide);document.addEventListener("pointerdown",hide);addEventListener("scroll",hide,{passive:true})}
+
+/* ---------- Events ---------- */
+document.addEventListener("click",e=>{
+  const t=e.target;
+  if(t.closest("[data-close]")){close();return}
+  if(t.closest("a[href]"))return;
+  const card=t.closest("[data-proj]");if(card){projectEditor(card.dataset.proj);return}
+  const np=t.closest("[data-newproj]");if(np){projectEditor(null,+np.dataset.newproj);return}
+  if(t.closest("#newProj")){projectEditor(null,0);return}
+  const md=t.closest("[data-msday]");if(md){dayPopover(md.dataset.msday,md);return}
+  const cf=t.closest("[data-colorfor]");if(cf){e.stopPropagation();quickColor(cf.dataset.colorfor);return}
+  const fc=t.closest("[data-focus]");if(fc){view.focus=view.focus===fc.dataset.focus?null:fc.dataset.focus;renderGrid();return}
+  const rm=t.closest("[data-rm]");if(rm){const id=rm.dataset.rm,b=S.blocks[id];if(b){const p=S.projects[b.projectId];del("blocks",id);
+    toast(`Tog bort ${p?.code||p?.name||"block"} · ${PARTS[b.part]} ${nice(b.date)}`,()=>put("blocks",id,b))}return}
+  const blk=t.closest("[data-blk]");if(blk){const b=S.blocks[blk.dataset.blk];if(b)blockEditor({id:blk.dataset.blk,...b},blk);return}
+  const add=t.closest("[data-add]");if(add){const c=add.closest(".g-c");blockEditor({personId:c.dataset.p,date:c.dataset.d,part:add.dataset.add},c);return}
+  const per=t.closest("[data-person]");if(per){personEditor(per.dataset.person,per);return}
+  if(t.closest("#addPerson")){personEditor(null,t);return}
+  if(t.closest("#prev")){const w=grid.parentElement;if(w.scrollLeft>2)w.scrollBy({left:-5*view.colW,behavior:"smooth"});else{view.start=addD(view.start,-7);renderGrid()}return}
+  if(t.closest("#next")){const w=grid.parentElement;if(w.scrollLeft+w.clientWidth<w.scrollWidth-2)w.scrollBy({left:5*view.colW,behavior:"smooth"});else{view.start=addD(view.start,7);renderGrid()}return}
+  if(t.closest("#today")){view.start=todayStart();renderGrid();grid.parentElement.scrollTo({left:0,behavior:"smooth"});return}
+  const wk=t.closest("[data-w]");if(wk){view.weeks=+wk.dataset.w;try{localStorage.setItem("cp_weeks",view.weeks)}catch(e){}renderGrid();grid.parentElement.scrollLeft=0;updRange();return}
+});
+document.addEventListener("change",e=>{if(e.target.id==="showMs"){showMs=e.target.checked;try{localStorage.setItem("cp_ms",showMs?"1":"0")}catch(_){}renderGrid()}});
+
+/* ---------- Förläng block genom att dra i kanten ---------- */
+const grid=$("#grid");
+let rs=null, swallowClick=false;
+const sameKind=(b,ref)=>b.personId===ref.personId&&b.projectId===ref.projectId&&b.part===ref.part;
+function rowCells(pid){return [...grid.querySelectorAll(".g-c")].filter(c=>c.dataset.p===pid)}
+function findAt(pid,date,ref){for(const[id,b]of Object.entries(S.blocks))if(b.date===date&&sameKind(b,{...ref,personId:pid}))return id;return null}
+function rsPlan(){
+  const cells=rs.cells,i0=rs.i0,it=rs.it,ref=rs.ref,add=[],rem=[];
+  if(rs.side==="r"){
+    if(it>i0)for(let i=i0+1;i<=it;i++){if(!findAt(ref.personId,cells[i].dataset.d,ref))add.push(i)}
+    else if(it<i0)for(let i=i0;i>it;i--){const id=findAt(ref.personId,cells[i].dataset.d,ref);if(id)rem.push([i,id])}
+  }else{
+    if(it<i0)for(let i=it;i<i0;i++){if(!findAt(ref.personId,cells[i].dataset.d,ref))add.push(i)}
+    else if(it>i0)for(let i=i0;i<it;i++){const id=findAt(ref.personId,cells[i].dataset.d,ref);if(id)rem.push([i,id])}
+  }
+  return{add,rem};
+}
+function rsPaint(){rs.cells.forEach(c=>c.classList.remove("rs","rs-del"));const{add,rem}=rsPlan();
+  const ref=rs.cells[rs.i0];if(add.length||!rem.length)ref.classList.add("rs");add.forEach(i=>rs.cells[i].classList.add("rs"));rem.forEach(([i])=>rs.cells[i].classList.add("rs-del"))}
+grid.addEventListener("pointerdown",e=>{const h=e.target.closest("[data-rh]");if(!h)return;
+  const el=h.closest("[data-blk]"),b=S.blocks[el?.dataset.blk];if(!b)return;
+  e.preventDefault();e.stopPropagation();
+  const cells=rowCells(b.personId),i0=cells.findIndex(c=>c.dataset.d===b.date);if(i0<0)return;
+  rs={id:el.dataset.blk,ref:{...b},side:h.dataset.rh,cells,i0,it:i0};document.body.classList.add("resizing");
+  try{h.setPointerCapture(e.pointerId)}catch(_){} rsPaint()});
+document.addEventListener("pointermove",e=>{if(!rs)return;
+  let it=rs.it;for(let i=0;i<rs.cells.length;i++){const r=rs.cells[i].getBoundingClientRect();if(e.clientX>=r.left&&e.clientX<r.right){it=i;break}
+    if(i===0&&e.clientX<r.left)it=0;if(i===rs.cells.length-1&&e.clientX>=r.right)it=i}
+  if(it!==rs.it){rs.it=it;rsPaint()}});
+function rsEnd(commit){if(!rs)return;const{add,rem}=commit?rsPlan():{add:[],rem:[]};const ref=rs.ref,cells=rs.cells;
+  cells.forEach(c=>c.classList.remove("rs","rs-del"));document.body.classList.remove("resizing");
+  if(add.length||rem.length){swallowClick=true;setTimeout(()=>swallowClick=false,50)}
+  rs=null;
+  for(const i of add)put("blocks",nid("b"),{personId:ref.personId,date:cells[i].dataset.d,part:ref.part,projectId:ref.projectId,note:ref.note||""});
+  for(const[,id]of rem)del("blocks",id);
+  if(add.length)toast(`Förlängt ${add.length} dag${add.length>1?"ar":""}`);else if(rem.length)toast(`Kortat ${rem.length} dag${rem.length>1?"ar":""}`)}
+document.addEventListener("pointerup",()=>rsEnd(true));
+document.addEventListener("pointercancel",()=>rsEnd(false));
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&rs)rsEnd(false)});
+document.addEventListener("click",e=>{if(swallowClick||e.target.closest?.("[data-rh]")){e.stopPropagation();e.preventDefault()}},true);
+
+let drag=null; // {kind:"blk"|"proj", id}
+document.addEventListener("dragstart",e=>{
+  if(rs||e.target.closest?.("[data-rh]")){e.preventDefault();return}
+  const b=e.target.closest?.("[data-blk]"), pj=e.target.closest?.("[data-dragproj]"), pn=e.target.closest?.(".g-n[data-person]");
+  if(pn){drag={kind:"person",id:pn.dataset.person};e.dataTransfer.effectAllowed="move";pn.classList.add("dragging")}
+  else if(b){drag={kind:"blk",id:b.dataset.blk};e.dataTransfer.effectAllowed="copyMove"}
+  else if(pj){drag={kind:"proj",id:pj.dataset.dragproj};e.dataTransfer.effectAllowed="copy"}
+  else return;
+  try{e.dataTransfer.setData("text/plain",drag.id)}catch(_){}
+});
+function zoneFor(e,c){const r=c.getBoundingClientRect(),y=(e.clientY-r.top)/r.height;
+  if(drag.kind==="blk"){const b=S.blocks[drag.id];if(b&&b.part==="full")return"full";return y<.5?"am":"pm"}
+  return y<.33?"am":y>.67?"pm":"full"}
+const clearDrop=()=>grid.querySelectorAll("[data-zone]").forEach(x=>{x.removeAttribute("data-zone");x.classList.remove("drop")});
+const clearPdrop=()=>grid.querySelectorAll(".dropa,.dropb,.dragging").forEach(x=>x.classList.remove("dropa","dropb","dragging"));
+grid.addEventListener("dragover",e=>{if(!drag||drag.kind!=="person")return;const n=e.target.closest(".g-n");if(!n)return;e.preventDefault();e.dataTransfer.dropEffect="move";
+  const r=n.getBoundingClientRect(),after=e.clientY>r.top+r.height/2;grid.querySelectorAll(".dropa,.dropb").forEach(x=>x!==n&&x.classList.remove("dropa","dropb"));
+  n.classList.toggle("dropa",after);n.classList.toggle("dropb",!after)});
+grid.addEventListener("drop",e=>{if(!drag||drag.kind!=="person")return;const n=e.target.closest(".g-n");e.preventDefault();
+  if(n&&n.dataset.person!==drag.id){const r=n.getBoundingClientRect();movePerson(drag.id,n.dataset.person,e.clientY>r.top+r.height/2)}
+  clearPdrop();drag=null});
+grid.addEventListener("dragover",e=>{const c=e.target.closest(".g-c");if(!c||!drag||drag.kind==="person")return;e.preventDefault();
+  e.dataTransfer.dropEffect=drag.kind==="proj"||e.altKey?"copy":"move";
+  const z=PARTS[zoneFor(e,c)];grid.querySelectorAll("[data-zone]").forEach(x=>x!==c&&(x.removeAttribute("data-zone"),x.classList.remove("drop")));
+  if(c.dataset.zone!==z)c.dataset.zone=z;c.classList.add("drop")});
+grid.addEventListener("dragleave",e=>{const c=e.target.closest(".g-c");if(c&&!c.contains(e.relatedTarget)){c.removeAttribute("data-zone");c.classList.remove("drop")}});
+grid.addEventListener("drop",e=>{const c=e.target.closest(".g-c");if(!c||!drag||drag.kind==="person")return;e.preventDefault();
+  const part=zoneFor(e,c);clearDrop();
+  if(absFor(absMap(),c.dataset.p,c.dataset.d).length)toast(`${S.people[c.dataset.p]?.name||""} är frånvarande ${nice(c.dataset.d)} enligt Monday.`);
+  if(drag.kind==="proj"){if(S.projects[drag.id])put("blocks",nid("b"),{personId:c.dataset.p,date:c.dataset.d,part,projectId:drag.id,note:""})}
+  else{const b=S.blocks[drag.id];if(b){const nb={...b,personId:c.dataset.p,date:c.dataset.d,part};
+    if(e.altKey)put("blocks",nid("b"),nb);else if(nb.personId!==b.personId||nb.date!==b.date||nb.part!==b.part)put("blocks",drag.id,nb)}}
+  drag=null});
+document.addEventListener("dragend",()=>{drag=null;clearDrop();clearPdrop()});
+document.addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.matches?.('[role="button"]')){e.preventDefault();e.target.click()}});
+
+{let raf=0;grid.parentElement.addEventListener("scroll",()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(updRange)},{passive:true});
+ let rt=0;addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(renderGrid,150)})}
+
+/* ---------- Lokalt db-shim: samma API som artefaktens db, men mot /api (server/server.js) ---------- */
+function localDb(base){
+  const subs={};
+  const load=async col=>{const r=await fetch(`${base}/${col}`,{cache:"no-store"});if(!r.ok)throw Object.assign(new Error(r.statusText),{code:r.status});return r.json()};
+  const notify=col=>(subs[col]||[]).forEach(f=>f());
+  const write=async(col,id,method,body)=>{const r=await fetch(`${base}/${col}/${encodeURIComponent(id)}`,{method,headers:{"content-type":"application/json"},body:body?JSON.stringify(body):undefined});
+    if(!r.ok)throw Object.assign(new Error(r.statusText),{code:r.status===403?"invalid_argument":"error"});notify(col)};
+  setInterval(()=>Object.keys(subs).forEach(notify),15000);
+  return {collection(col){return{
+    onSnapshot(cb,err){const run=()=>load(col).then(o=>cb({docs:Object.entries(o).map(([id,data])=>({id,data:()=>data})),metadata:{fromCache:false}})).catch(e=>err?.(e));
+      (subs[col]??=[]).push(run);run();return()=>{subs[col]=subs[col].filter(f=>f!==run)}},
+    doc(id){return{set:data=>write(col,id,"PUT",data),delete:()=>write(col,id,"DELETE")}}}}}}
+
+/* ---------- Data ---------- */
+render();
+(async()=>{
+  try{db=await window.claude?.use?.("db")}catch(e){db=null}
+  if(!db)db=localDb("/api");
+  if(!db){setNote("Planeringen kan inte laddas i den här vyn – ändringar sparas inte.");return}
+  setNote("Laddar planeringen…");
+  const timer=setTimeout(()=>setNote("Får ingen kontakt med planeringen än. Det kan visa gammal data."),10000);
+  const done=new Set();
+  for(const col of ["projects","people","blocks","absence"]){
+    db.collection(col).onSnapshot(snap=>{const o={};snap.docs.forEach(d=>o[d.id]=d.data());S[col]=o;
+      if(!snap.metadata.fromCache){done.add(col);if(done.size===4){clearTimeout(timer);setNote(Object.keys(S.people).length?"":"Tomt än – lägg till personer och produktioner med plus.")}}
+      render()},
+      err=>{clearTimeout(timer);setNote(err?.code==="revoked"?"Åtkomsten till planeringen har ändrats.":"Anslutningen bröts – ladda om sidan.")});
+  }
+})();
+</script>
+
+</body>
+</html>
