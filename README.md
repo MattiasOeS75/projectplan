@@ -69,3 +69,13 @@ Mappningen (`mapMonday()` i `server/monday.js`) är skriven för boardet **Proje
 | Involverade, Skapad, period | sparas under `source.monday` |
 
 Lokala fält (färg, väntar på, budget, leveranser) skrivs aldrig över av synken. Projekt-id = `m<item_id>`.
+
+### Resurser
+
+| Monday | Plan |
+|---|---|
+| Användare (aktiva medlemmar, ej gäster/åskådare) | `people` `u<userId>` – namn, roll = Monday-titel (lokalt ändrad roll behålls) |
+| **Frilansare** (1083892887), grupp *Aktiva Frilansare* | `people` `m<item>` – roll = Titel/Roll · frilans |
+| **Frånvaro** (1071497633), alla grupper utom INKOMMET / Ej Godkända | `absence` `a<subitem>` per period i underobjekten (Typ av Frånvaro → typ); personen matchas på *Medarbetare* |
+
+Ordningen på personer i gridden är lokal och behålls. Frånvaro från Monday ersätts vid varje synk; manuellt inlagd frånvaro rörs inte.

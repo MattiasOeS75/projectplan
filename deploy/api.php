@@ -111,14 +111,20 @@ function monday_boards(array $cfg): array {
     return array_values(array_filter($d['boards'] ?? [], fn($b) => ($b['state'] ?? '') === 'active'));
 }
 
-function monday_board_items(array $cfg, string $boardId): array {
+function monday_users(array $cfg): array {
+    $d = monday_query($cfg, '{ users(kind: non_guests) { id name title enabled is_guest is_view_only } }');
+    return array_values(array_filter($d['users'] ?? [], fn($u) => !empty($u['enabled']) && empty($u['is_guest']) && empty($u['is_view_only'])));
+}
+
+function monday_board_items(array $cfg, string $boardId, bool $withSubitems = false): array {
     $c = monday_query($cfg, 'query($id:[ID!]){ boards(ids:$id){ name columns { id title type } groups { id title } } }', ['id' => [$boardId]]);
     $board = $c['boards'][0] ?? null;
     if (!$board) throw new RuntimeException("Board $boardId hittades inte");
     $items = []; $cursor = null;
     do {
         $d = monday_query($cfg, 'query($id:[ID!],$cursor:String){ boards(ids:$id){ items_page(limit:200, cursor:$cursor){ cursor
-                 items { id name group { id title } column_values { id text value type } } } } }', ['id' => [$boardId], 'cursor' => $cursor]);
+                 items { id name group { id title } column_values { id text value type } '
+                 . ($withSubitems ? 'subitems { id name column_values { id text value type column { title } } } ' : '') . '} } } }', ['id' => [$boardId], 'cursor' => $cursor]);
         $page = $d['boards'][0]['items_page'];
         foreach ($page['items'] as $it) {
             $cols = [];
@@ -126,8 +132,17 @@ function monday_board_items(array $cfg, string $boardId): array {
                 $val = $cv['value'] ? json_decode($cv['value'], true) : null;
                 $cols[$cv['id']] = ['text' => $cv['text'], 'value' => $val ?? $cv['value'], 'type' => $cv['type']];
             }
+            $subs = [];
+            foreach ($it['subitems'] ?? [] as $si) {
+                $sc = [];
+                foreach ($si['column_values'] as $cv) {
+                    $val = $cv['value'] ? json_decode($cv['value'], true) : null;
+                    $sc[$cv['column']['title'] ?? $cv['id']] = ['text' => $cv['text'], 'value' => $val ?? $cv['value'], 'type' => $cv['type']];
+                }
+                $subs[] = ['id' => (int)$si['id'], 'name' => $si['name'], 'columns' => $sc];
+            }
             $items[] = ['board_id' => (int)$boardId, 'item_id' => (int)$it['id'], 'name' => $it['name'],
-                        'group_id' => $it['group']['id'] ?? null, 'group_title' => $it['group']['title'] ?? '', 'columns' => $cols];
+                        'group_id' => $it['group']['id'] ?? null, 'group_title' => $it['group']['title'] ?? '', 'columns' => $cols, 'subitems' => $subs];
         }
         $cursor = $page['cursor'];
     } while ($cursor);
@@ -201,6 +216,50 @@ function map_monday(array $boards, array $existing): array {
     return $out;
 }
 
+/** Resurser: Monday-användare + Frilansare-board → people, Frånvaro-board → absence. Speglar mapResources() i server/monday.js. */
+function map_resources(array $users, ?array $frilans, ?array $franvaro, array $existing): array {
+    $out = ['people' => [], 'absence' => []];
+    $prev = $existing['people'] ?? [];
+    $order = 0; foreach ($prev as $p) $order = max($order, (int)($p['order'] ?? 0));
+    $add = function (string $id, array $data) use (&$out, $prev, &$order) {
+        $pp = $prev[$id] ?? [];
+        $out['people'][$id] = array_merge(['kind' => 'person'], $pp, $data, ['order' => $pp['order'] ?? ++$order]);
+    };
+    foreach ($users as $u) $add('u' . $u['id'], ['name' => $u['name'], 'role' => $prev['u' . $u['id']]['role'] ?? ($u['title'] ?? ''), 'source' => ['monday' => ['userId' => (int)$u['id']]]]);
+    if ($frilans) {
+        $byTitle = []; foreach ($frilans['board']['columns'] as $c) $byTitle[norm($c['title'])] = $c['id'];
+        $col = fn($it, $t) => trim($it['columns'][$byTitle[norm($t)] ?? '']['text'] ?? '');
+        foreach ($frilans['items'] as $it) {
+            $g = $it['group_title'] ?? '';
+            if (!preg_match('/aktiva/iu', $g) || preg_match('/inaktiva/iu', $g)) continue;
+            $add('m' . $it['item_id'], ['name' => $it['name'], 'role' => implode(' · ', array_filter([$col($it, 'Titel/Roll'), 'frilans'])),
+                'source' => ['monday' => ['boardId' => $it['board_id'], 'item' => $it['item_id'], 'typ' => $col($it, 'Typ'), 'foretag' => $col($it, 'Företag')]]]);
+        }
+    }
+    $byName = []; foreach (array_merge($prev, $out['people']) as $id => $p) $byName[norm($p['name'] ?? '')] = $id;
+    if ($franvaro) {
+        $byTitle = []; foreach ($franvaro['board']['columns'] as $c) $byTitle[norm($c['title'])] = $c['id'];
+        $col = fn($it, $t) => trim($it['columns'][$byTitle[norm($t)] ?? '']['text'] ?? '');
+        $raw = fn($it, $t) => $it['columns'][$byTitle[norm($t)] ?? '']['value'] ?? null;
+        foreach ($franvaro['items'] as $it) {
+            if (preg_match('/inkommet|ej godkända/iu', $it['group_title'] ?? '')) continue;
+            $who = $col($it, 'Medarbetare') ?: ($it['group_title'] ?? '');
+            $personId = $byName[norm($who)] ?? null;
+            if (!$personId) continue;
+            $type = $col($it, 'Typ av Frånvaro') ?: preg_replace('/^.*? - /u', '', $it['name']);
+            $periods = [];
+            foreach ($it['subitems'] ?? [] as $si) {
+                foreach ($si['columns'] as $c) if (is_array($c['value'] ?? null) && !empty($c['value']['from']) && !empty($c['value']['to'])) { $periods[] = ['id' => 'a' . $si['id'], 'from' => $c['value']['from'], 'to' => $c['value']['to'], 'note' => $si['name']]; break; }
+            }
+            $own = $raw($it, 'Period');
+            if (!$periods && is_array($own) && !empty($own['from']) && !empty($own['to'])) $periods[] = ['id' => 'a' . $it['item_id'], 'from' => $own['from'], 'to' => $own['to'], 'note' => $it['name']];
+            foreach ($periods as $p) $out['absence'][$p['id']] = ['personId' => $personId, 'from' => $p['from'], 'to' => $p['to'], 'part' => 'full', 'type' => $type, 'note' => $p['note'],
+                'source' => ['monday' => ['boardId' => $it['board_id'], 'item' => $it['item_id']]]];
+        }
+    }
+    return $out;
+}
+
 function monday_sync(PDO $db, array $cfg, array $boardIds): array {
     if (!$boardIds) throw new RuntimeException('Inga boards angivna (MONDAY_BOARDS i config.php eller ?boards=1,2)');
     $boards = [];
@@ -211,7 +270,16 @@ function monday_sync(PDO $db, array $cfg, array $boardIds): array {
         foreach ($b['items'] as $it) $ins->execute([$it['board_id'], $it['item_id'], $it['name'], $it['group_id'], json_encode($it['columns'], JSON_UNESCAPED_UNICODE)]);
         $boards[] = $b;
     }
-    $existing = ['projects' => doc_list($db, 'projects'), 'people' => doc_list($db, 'people')];
+    $existing = ['projects' => doc_list($db, 'projects'), 'people' => doc_list($db, 'people'), 'absence' => doc_list($db, 'absence')];
+    // Resurser
+    $users = []; try { $users = monday_users($cfg); } catch (Throwable $e) { /* saknar rättighet? fortsätt utan */ }
+    $fr = ($cfg['MONDAY_FRILANS'] ?? '1083892887') ? monday_board_items($cfg, (string)($cfg['MONDAY_FRILANS'] ?? '1083892887')) : null;
+    $fv = ($cfg['MONDAY_FRANVARO'] ?? '1071497633') ? monday_board_items($cfg, (string)($cfg['MONDAY_FRANVARO'] ?? '1071497633'), true) : null;
+    $res = map_resources($users, $fr, $fv, $existing);
+    foreach ($res['people'] as $id => $data) { doc_set($db, 'people', $id, $data); $existing['people'][$id] = $data; }
+    $del = $db->prepare('DELETE FROM docs WHERE collection = ? AND id = ?');
+    foreach ($existing['absence'] as $id => $a) if (isset($a['source']['monday']) && !isset($res['absence'][$id])) $del->execute(['absence', $id]);
+    foreach ($res['absence'] as $id => $data) doc_set($db, 'absence', $id, $data);
     $mapped = map_monday($boards, $existing);
     $n = 0;
     foreach ($mapped['projects'] as $id => $data) {
@@ -221,7 +289,8 @@ function monday_sync(PDO $db, array $cfg, array $boardIds): array {
         doc_set($db, 'projects', $id, $merged);
         $n++;
     }
-    return ['boards' => array_map(fn($b) => ['name' => $b['board']['name'], 'items' => count($b['items'])], $boards), 'written' => $n];
+    return ['boards' => array_map(fn($b) => ['name' => $b['board']['name'], 'items' => count($b['items'])], $boards),
+            'projects' => $n, 'people' => count($res['people']), 'absence' => count($res['absence'])];
 }
 
 if (!defined('PLAN_NO_RUN')) main();
