@@ -273,11 +273,13 @@ function monday_sync(PDO $db, array $cfg, array $boardIds): array {
     $existing = ['projects' => doc_list($db, 'projects'), 'people' => doc_list($db, 'people'), 'absence' => doc_list($db, 'absence')];
     // Resurser
     $users = []; try { $users = monday_users($cfg); } catch (Throwable $e) { /* saknar rättighet? fortsätt utan */ }
-    $fr = ($cfg['MONDAY_FRILANS'] ?? '1083892887') ? monday_board_items($cfg, (string)($cfg['MONDAY_FRILANS'] ?? '1083892887')) : null;
+    $fr = !empty($cfg['MONDAY_FRILANS']) ? monday_board_items($cfg, (string)$cfg['MONDAY_FRILANS']) : null;
     $fv = ($cfg['MONDAY_FRANVARO'] ?? '1071497633') ? monday_board_items($cfg, (string)($cfg['MONDAY_FRANVARO'] ?? '1071497633'), true) : null;
     $res = map_resources($users, $fr, $fv, $existing);
     foreach ($res['people'] as $id => $data) { doc_set($db, 'people', $id, $data); $existing['people'][$id] = $data; }
     $del = $db->prepare('DELETE FROM docs WHERE collection = ? AND id = ?');
+    // Personer som tidigare synkats från Frilansare-boardet tas bort när den är avstängd
+    if (empty($cfg['MONDAY_FRILANS'])) foreach ($existing['people'] as $id => $p) if (!empty($p['source']['monday']['boardId']) && !isset($res['people'][$id])) { $del->execute(['people', $id]); unset($existing['people'][$id]); }
     foreach ($existing['absence'] as $id => $a) if (isset($a['source']['monday']) && !isset($res['absence'][$id])) $del->execute(['absence', $id]);
     foreach ($res['absence'] as $id => $data) doc_set($db, 'absence', $id, $data);
     $mapped = map_monday($boards, $existing);

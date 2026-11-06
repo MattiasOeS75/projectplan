@@ -120,7 +120,7 @@ export function mapMonday(boards, existing = {}) {
 }
 /* ---------- Resurser: användare + Frilansare-board → people, Frånvaro-board → absence ---------- */
 export const RESOURCE_BOARDS = {
-  frilans: process.env.MONDAY_FRILANS || "1083892887",   // grupp "Aktiva Frilansare"
+  frilans: process.env.MONDAY_FRILANS || "",             // av som standard – bara medlemmar/admins ska med. Sätt board-id (1083892887) för att ta med aktiva frilansare
   franvaro: process.env.MONDAY_FRANVARO || "1071497633", // en grupp per person, perioder i underobjekt
 };
 
@@ -221,6 +221,8 @@ export async function syncMonday(store, { boardIds } = {}) {
   ]);
   const res = mapResources({ users, frilans, franvaro }, existing);
   for (const [id, data] of Object.entries(res.people)) { await store.set("people", id, data); existing.people[id] = data; }
+  // Personer som tidigare synkats från Frilansare-boardet tas bort när den är avstängd
+  if (!RESOURCE_BOARDS.frilans) for (const [id, p] of Object.entries(existing.people)) if (p.source?.monday?.boardId && !res.people[id]) { await store.del("people", id); delete existing.people[id]; }
   // Frånvaro från Monday ersätts helt (lokala, manuellt skapade behålls)
   for (const [id, a] of Object.entries(existing.absence)) if (a.source?.monday && !res.absence[id]) await store.del("absence", id);
   for (const [id, data] of Object.entries(res.absence)) await store.set("absence", id, data);

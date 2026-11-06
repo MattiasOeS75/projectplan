@@ -9,6 +9,6 @@ return [
   'PGSSL'         => false,   // Websupport: databasen ligger på samma server utan SSL
   'MONDAY_TOKEN'  => '',
   'MONDAY_BOARDS' => '1071363420',
-  'MONDAY_FRILANS' => '1083892887',   // Frilansare-board (grupp Aktiva Frilansare)
+  'MONDAY_FRILANS' => '',             // tomt = bara medlemmar/admins. Sätt '1083892887' för att ta med aktiva frilansare
   'MONDAY_FRANVARO' => '1071497633',  // Frånvaro-board (perioder i underobjekt)
 ];
