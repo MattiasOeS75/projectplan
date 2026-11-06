@@ -777,7 +777,7 @@ function localDb(base){
 render();
 (async()=>{
   try{db=await window.claude?.use?.("db")}catch(e){db=null}
-  if(!db)db=localDb("/api");
+  if(!db)db=localDb("api");
   if(!db){setNote("Planeringen kan inte laddas i den här vyn – ändringar sparas inte.");return}
   setNote("Laddar planeringen…");
   const timer=setTimeout(()=>setNote("Får ingen kontakt med planeringen än. Det kan visa gammal data."),10000);

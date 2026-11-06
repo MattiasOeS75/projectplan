@@ -1,0 +1,14 @@
+# Crosby produktionsplan – webbhotell
+RewriteEngine On
+RewriteBase /projectplan/
+RewriteRule ^api/(.*)$ api.php?path=$1 [QSA,L]
+
+<Files "config.php">
+  Require all denied
+</Files>
+<Files "schema.sql">
+  Require all denied
+</Files>
+<FilesMatch "\.(example\.php|md)$">
+  Require all denied
+</FilesMatch>
