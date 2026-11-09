@@ -345,29 +345,37 @@ function make_date_parser(int $year): Closure {
         return sprintf('%04d-%02d-%02d', $year, $mon, (int)$m[1]);
     };
 }
+const MS_KEYWORDS = '/\b(leverans|delivery|deliver|möte|avstämning|godkän\w*|approval|approved|first|second|2nd|1st|3rd|final|online|offline|first ?look|first ?view|uppstart|kickoff|kick-off|produktionsstart|inspelning|shoot|presentation|deadline|preview|review|feedback|first cut|rough cut|fine cut|screening|visning)\b/iu';
 function is_milestone(string $t): bool {
-    $w = preg_split('/\s+/u', trim($t)); $first = $w[0] ?? ''; $second = $w[1] ?? '';
-    return (bool)preg_match('/^[A-ZÅÄÖ0-9][A-ZÅÄÖ0-9\/\-]{2,}$/u', $first) || (preg_match('/^(2nd|1st|3rd)$/i', $first) && preg_match('/^[A-ZÅÄÖ]/u', $second));
+    $s = trim($t); $w = preg_split('/\s+/u', $s); $first = $w[0] ?? ''; $second = $w[1] ?? '';
+    if (preg_match('/^[A-ZÅÄÖ0-9][A-ZÅÄÖ0-9\/\-]{2,}$/u', $first)) return true;                       // VERSALER
+    if (preg_match('/^(2nd|1st|3rd)$/i', $first) && preg_match('/^[A-ZÅÄÖ]/u', $second)) return true;
+    return (bool)preg_match(MS_KEYWORDS, $s);                                                            // nyckelord
 }
 function is_delivery(string $t): bool { return (bool)preg_match('/^(leverans|delivery|final delivery|slutleverans)/iu', trim($t)); }
 function track_name($h): string { $s = trim((string)$h); return trim(preg_match('/(?:[-–·]\s*)([^-–·]+)$/u', $s, $m) ? $m[1] : $s); }
 
 function parse_timeline(array $rows, int $year): array {
-    if (!$rows) return ['milestones' => [], 'delivery' => ''];
-    $head = array_map('trim', $rows[0]);
+    // Rubrikraden (den med DATUM) kan ligga under en titel
+    $hi = -1; foreach ($rows as $ri => $r) { foreach ($r as $c) if (preg_match('/^datum$/i', trim($c))) { $hi = $ri; break 2; } }
+    if ($hi < 0) return ['milestones' => [], 'delivery' => ''];
+    $head = array_map('trim', $rows[$hi]);
     $di = -1; foreach ($head as $i => $h) if (preg_match('/^datum$/i', $h)) { $di = $i; break; }
-    if ($di < 0) return ['milestones' => [], 'delivery' => ''];
-    $tracks = []; foreach ($head as $i => $h) if ($i > $di && $h !== '') $tracks[] = ['i' => $i, 'name' => track_name($h)];
-    $multi = count($tracks) > 1; $toDate = make_date_parser($year);
+    $body = array_slice($rows, $hi + 1);
+    $width = count($head); foreach ($body as $r) $width = max($width, count($r));
+    $tracks = [];
+    for ($i = $di + 1; $i < $width; $i++) { $used = false; foreach ($body as $r) if (trim($r[$i] ?? '') !== '') { $used = true; break; } if ($used) $tracks[] = ['i' => $i, 'name' => track_name($head[$i] ?? '')]; }
+    $named = count(array_filter($tracks, fn($t) => $t['name'] !== '')); $multi = $named > 1;
+    $toDate = make_date_parser($year);
     $ms = []; $delivery = '';
-    foreach (array_slice($rows, 1) as $r) {
+    foreach ($body as $r) {
         $d = $toDate($r[$di] ?? ''); if (!$d) continue;
         foreach ($tracks as $t) {
             $raw = trim(preg_replace('/\s+/u', ' ', $r[$t['i']] ?? '')); if ($raw === '') continue;
             foreach (preg_split('/\s*·\s*/u', $raw) as $part) {
                 if (!is_milestone($part)) continue;
                 $text = mb_strlen($part) > 60 ? mb_substr($part, 0, 57) . '…' : $part;
-                $ms[] = ['d' => $d, 't' => $multi ? $t['name'] . ': ' . $text : $text, 's' => 1];
+                $ms[] = ['d' => $d, 't' => ($multi && $t['name'] !== '') ? $t['name'] . ': ' . $text : $text, 's' => 1];
                 if (is_delivery($part) && $d > $delivery) $delivery = $d;
             }
         }
@@ -401,7 +409,9 @@ function sheets_sync(PDO $db): array {
             $year = preg_match('/^(\d{4})/', (string)($p['source']['monday']['created'] ?? $p['delivery'] ?? ''), $m) ? (int)$m[1] : (int)date('Y');
             $tl = parse_timeline(sheet_fetch_tab($sid, 'Tidsplan'), $year);
             $deliveries = $p['deliveries'] ?? null;
-            try { $deliveries = parse_formats(sheet_fetch_tab($sid, 'Format')) ?? $deliveries; } catch (Throwable $e) { /* ingen Format-flik */ }
+            foreach (['Format', 'Leverans', 'Leveranser', 'Leveranslista', 'Deliveries', 'Delivery', 'Formats'] as $tab) {
+                try { $d = parse_formats(sheet_fetch_tab($sid, $tab)); if ($d) { $deliveries = $d; break; } } catch (Throwable $e) { /* fliken finns inte */ }
+            }
             $manual = array_values(array_filter($p['milestones'] ?? [], fn($m) => empty($m['s'])));
             $next = $p; $next['milestones'] = array_merge($manual, $tl['milestones']); if ($deliveries) $next['deliveries'] = $deliveries;
             if ($tl['delivery'] && (empty($p['delivery']) || !empty($p['deliveryFromSheet']))) { $next['delivery'] = $tl['delivery']; $next['deliveryFromSheet'] = true; }

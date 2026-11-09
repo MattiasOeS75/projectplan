@@ -48,27 +48,37 @@ export function makeDateParser(startYear) {
   };
 }
 
-const isMilestone = (t) => { const w = t.trim().split(/\s+/)[0] || ""; return /^[A-ZÅÄÖ0-9][A-ZÅÄÖ0-9/\-]{2,}$/.test(w) || /^(2nd|1st|3rd)$/i.test(w) && /^[A-ZÅÄÖ]/.test(t.trim().split(/\s+/)[1] || ""); };
+const KEYWORDS = /\b(leverans|delivery|deliver|möte|avstämning|godkän\w*|approval|approved|first|second|2nd|1st|3rd|final|online|offline|first ?look|first ?view|uppstart|kickoff|kick-off|produktionsstart|inspelning|shoot|presentation|deadline|preview|review|feedback|first cut|rough cut|fine cut|screening|visning)\b/i;
+const isMilestone = (t) => {
+  const s = t.trim(), w = s.split(/\s+/);
+  if (/^[A-ZÅÄÖ0-9][A-ZÅÄÖ0-9/\-]{2,}$/.test(w[0] || "")) return true;          // VERSALER
+  if (/^(2nd|1st|3rd)$/i.test(w[0] || "") && /^[A-ZÅÄÖ]/.test(w[1] || "")) return true;
+  return KEYWORDS.test(s);                                                        // nyckelord ("Möte Avstämning", "Leverans")
+};
 const isDelivery = (t) => /^(leverans|delivery|final delivery|slutleverans)/i.test(t.trim());
 const trackName = (h) => { const s = String(h || "").trim(); const m = s.match(/(?:[-–·]\s*)([^-–·]+)$/); return (m ? m[1] : s).trim(); };
 
 /** Tidsplan-flik → { milestones:[{d,t,s:1}], delivery } */
 export function parseTimeline(rows, { year = new Date().getFullYear() } = {}) {
-  if (!rows.length) return { milestones: [], delivery: "" };
-  const head = rows[0].map((h) => h.trim());
-  const di = head.findIndex((h) => /^datum$/i.test(h)); if (di < 0) return { milestones: [], delivery: "" };
-  const tracks = head.map((h, i) => (i > di && h ? { i, name: trackName(h) } : null)).filter(Boolean);
-  const multi = tracks.length > 1;
+  // Rubrikraden (den med DATUM) kan ligga under en titel
+  const hi = rows.findIndex((r) => r.some((c) => /^datum$/i.test(c.trim())));
+  if (hi < 0) return { milestones: [], delivery: "" };
+  const head = rows[hi].map((h) => h.trim());
+  const di = head.findIndex((h) => /^datum$/i.test(h));
+  const width = Math.max(head.length, ...rows.slice(hi + 1).map((r) => r.length));
+  // Spår = kolumner efter DATUM, även utan rubrik
+  const tracks = []; for (let i = di + 1; i < width; i++) if (rows.slice(hi + 1).some((r) => (r[i] || "").trim())) tracks.push({ i, name: trackName(head[i] || "") });
+  const multi = tracks.filter((t) => t.name).length > 1;
   const toDate = makeDateParser(year);
   const milestones = []; let delivery = "";
-  for (const r of rows.slice(1)) {
+  for (const r of rows.slice(hi + 1)) {
     const d = toDate(r[di]); if (!d) continue;
     for (const t of tracks) {
       const raw = (r[t.i] || "").replace(/\s+/g, " ").trim(); if (!raw) continue;
       for (const part of raw.split(/\s*·\s*/)) {
         if (!isMilestone(part)) continue;
         const text = part.length > 60 ? part.slice(0, 57) + "…" : part;
-        milestones.push({ d, t: multi ? `${t.name}: ${text}` : text, s: 1 });
+        milestones.push({ d, t: multi && t.name ? `${t.name}: ${text}` : text, s: 1 });
         if (isDelivery(part) && d > delivery) delivery = d;
       }
     }
@@ -97,6 +107,8 @@ export function parseFormats(rows) {
   return g.length ? { cols, groups: g } : null;
 }
 
+export const DELIVERY_TABS = ["Format", "Leverans", "Leveranser", "Leveranslista", "Deliveries", "Delivery", "Formats"];
+
 /** Synka alla projekt som har en Sheets-länk. Manuella milstolpar (utan s:1) behålls. */
 export async function syncSheets(store, { year } = {}) {
   const projects = await store.list("projects");
@@ -106,7 +118,7 @@ export async function syncSheets(store, { year } = {}) {
     try {
       const tl = parseTimeline(await fetchTab(sid, "Tidsplan"), { year: year || yearHint(p) });
       let deliveries = p.deliveries;
-      try { deliveries = parseFormats(await fetchTab(sid, "Format")) || p.deliveries; } catch { /* ingen Format-flik */ }
+      for (const tab of DELIVERY_TABS) { try { const d = parseFormats(await fetchTab(sid, tab)); if (d) { deliveries = d; break; } } catch { /* fliken finns inte */ } }
       const manual = (p.milestones || []).filter((m) => !m.s);
       const next = { ...p, milestones: [...manual, ...tl.milestones], deliveries };
       if (tl.delivery && (!p.delivery || p.deliveryFromSheet)) { next.delivery = tl.delivery; next.deliveryFromSheet = true; }

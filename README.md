@@ -53,10 +53,11 @@ Projekt med en Sheets-länk i fältet *Tidsplan* (eller en länk i någon Monday
 `POST /api/sheets/sync` (körs även efter varje Monday-synk, `npm run sheets` lokalt). Arket måste vara delat
 "alla med länken kan visa". Läses:
 
-- flik **Tidsplan** (`Vecka | DAG | DATUM | ett spår per kolumn`): celler som börjar med VERSALER blir milstolpar
-  (`FIRST VIEW`, `2nd VIEW`, `DELIVERY`, `UPPSTART` …), prefixade med spårets namn (Bild/Ljud) om flera spår.
-  `DELIVERY`/`LEVERANS` sätter projektets leveransdag (om den inte satts manuellt).
-- flik **Format**: tabellen blir leveranslistan i fliken *Leveranser*, grupperad på kolumnen *Land*.
+- flik **Tidsplan** (`Vecka | DAG | DATUM | ett spår per kolumn`, rubrikraden får ligga under en titel, spår får sakna rubrik):
+  milstolpar = celler som börjar med VERSALER (`FIRST VIEW`, `DELIVERY`, `UPPSTART` …) eller innehåller nyckelord
+  (möte, avstämning, godkänd, leverans, first/second/final, online, uppstart, inspelning, feedback …). Prefixas med
+  spårets namn (Bild/Ljud) om flera namngivna spår. `Leverans`/`Delivery` sätter projektets leveransdag (om den inte satts manuellt).
+- flik **Format** / **Leverans** / **Leveranser** / **Deliveries**: tabellen blir leveranslistan i fliken *Leveranser*, grupperad på kolumnen *Land*.
 
 Manuella milstolpar behålls; de från arket är märkta `s:1` och ersätts vid varje synk.
 
