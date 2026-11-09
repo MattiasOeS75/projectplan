@@ -232,6 +232,19 @@ label.f input,label.f select,label.f textarea{border:1px solid var(--line);borde
 label.f textarea{min-height:70px;resize:vertical}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .pick{display:flex;flex-wrap:wrap;gap:6px}
+/* projektväljare: vald + sökfält + träfflista */
+.pcombo{position:relative;display:flex;flex-direction:column;gap:6px}
+.psel{display:flex;align-items:center;gap:8px;border:1px solid var(--c);background:color-mix(in srgb,var(--c) 18%,var(--surface));border-radius:6px;padding:7px 10px;font-weight:600;font-size:13px}
+.psel i{width:10px;height:10px;border-radius:3px;background:var(--c);flex:none}
+.psel .code{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--muted)}
+.pcombo input{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:7px 10px}
+.plist{position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:5;max-height:260px;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.3);padding:4px}
+.plist button{display:flex;align-items:center;gap:8px;width:100%;border:0;background:transparent;border-radius:5px;padding:6px 8px;font-size:13px;font-weight:500;text-align:left}
+.plist button i{width:10px;height:10px;border-radius:3px;background:var(--c);flex:none}
+.plist button .code{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--muted)}
+.plist button .ph{font-size:10px;color:var(--muted);font-family:var(--mono)}
+.plist button:hover,.plist button[aria-selected="true"]{background:color-mix(in srgb,var(--c) 18%,var(--surface))}
+.plist .none{padding:8px;font-size:12px;color:var(--muted)}
 .pick button{border:1px solid var(--line);background:var(--surface);border-radius:5px;padding:5px 9px 5px 7px;font-size:12px;font-weight:600;display:inline-flex;gap:6px;align-items:center}
 .pick button i{width:10px;height:10px;border-radius:3px;background:var(--c)}
 .pick button[aria-pressed="true"]{border-color:var(--c);background:color-mix(in srgb,var(--c) 18%,var(--surface))}
@@ -561,14 +574,31 @@ function blockEditor({id,personId,date,part,projectId,note,tent},anchor){
   const st={part,projectId:projectId||view.focus||projs[0].id};
   const per=S.people[personId];
   const pop=openPop(`<div><h4>${id?"Ändra block":"Blocka tid"}</h4><div class="sub">${esc(per?.name||"")} · ${DAYN[parse(date).getDay()]} ${nice(date)}</div></div>
-    <div class="pick" id="pp">${projs.map(p=>`<button type="button" style="--c:${pc(p)}" data-pid="${esc(p.id)}" aria-pressed="${st.projectId===p.id}"><i></i>${esc(p.name)}</button>`).join("")}</div>
+    <div class="pcombo" id="pp"><div class="psel" id="ppsel"></div><input id="ppq" placeholder="Sök produktion – namn eller projektnr…" autocomplete="off" aria-label="Sök produktion"><div class="plist" id="ppl" hidden></div></div>
     <div class="seg" id="pt">${Object.entries(PARTS).map(([k,v])=>`<button type="button" data-part="${k}" aria-pressed="${st.part===k}">${v}</button>`).join("")}</div>
     <label class="f">Notering (valfri)<input id="bn" value="${esc(note||"")}" placeholder="t.ex. korrfix, render, på set"></label>
     <label class="chk"><input type="checkbox" id="btent"${tent?" checked":""}> Preliminär bokning (inte bekräftad än)</label>
     <div class="two"><label class="f">Person<select id="bp">${sorted("people").map(p=>`<option value="${esc(p.id)}"${p.id===personId?" selected":""}>${esc(p.name)}</option>`).join("")}</select></label>
     <label class="f">Datum<input type="date" id="bd" value="${date}"></label></div>
     <div class="acts">${id?`<button type="button" class="btn danger" id="bdel">Ta bort</button>`:"<span></span>"}<div><button type="button" class="btn" data-close>Avbryt</button><button type="button" class="btn primary" id="bsave">${id?"Spara":"Blocka"}</button></div></div>`,anchor);
-  pop.querySelector("#pp").onclick=e=>{const b=e.target.closest("[data-pid]");if(!b)return;st.projectId=b.dataset.pid;pop.querySelectorAll("#pp button").forEach(x=>x.setAttribute("aria-pressed",x===b))};
+  {const sel=pop.querySelector("#ppsel"),q=pop.querySelector("#ppq"),list=pop.querySelector("#ppl");let hi=0,hits=[];
+   const norm=x=>(x||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+   const showSel=()=>{const p=S.projects[st.projectId];if(!p){sel.innerHTML="";return}sel.style.setProperty("--c",pc(p));sel.innerHTML=`<i></i><span>${esc(p.name)}</span><span class="code">${esc(p.code||"")}</span>`};
+   const render=()=>{const t=norm(q.value.trim());hits=projs.filter(p=>!t||norm(p.name).includes(t)||norm(p.code).includes(t)||norm(p.client).includes(t));
+     if(t)hits.sort((a,b)=>(norm(a.name).startsWith(t)?0:1)-(norm(b.name).startsWith(t)?0:1));hi=Math.min(hi,Math.max(0,hits.length-1));
+     list.innerHTML=hits.length?hits.map((p,i)=>`<button type="button" style="--c:${pc(p)}" data-pid="${esc(p.id)}" aria-selected="${i===hi}"><i></i>${esc(p.name)}<span class="ph">${esc(PHASES[p.phase??0])}</span><span class="code">${esc(p.code||"")}</span></button>`).join(""):`<div class="none">Ingen träff</div>`;list.hidden=false;
+     list.querySelector('[aria-selected="true"]')?.scrollIntoView({block:"nearest"})};
+   const pick=pid=>{if(!pid)return;st.projectId=pid;showSel();list.hidden=true;q.value=""};
+   showSel();
+   q.oninput=()=>{hi=0;render()};q.onfocus=render;
+   q.onkeydown=e=>{if(list.hidden&&e.key!=="Escape"){render();}
+     if(e.key==="ArrowDown"){hi=Math.min(hi+1,hits.length-1);render();e.preventDefault()}
+     else if(e.key==="ArrowUp"){hi=Math.max(hi-1,0);render();e.preventDefault()}
+     else if(e.key==="Enter"){pick(hits[hi]?.id);e.preventDefault()}
+     else if(e.key==="Escape"&&!list.hidden){list.hidden=true;e.stopPropagation()}};
+   list.onmousedown=e=>{const b=e.target.closest("[data-pid]");if(b){pick(b.dataset.pid);e.preventDefault()}};
+   q.onblur=()=>setTimeout(()=>{list.hidden=true},120);
+   setTimeout(()=>q.focus(),30)}
   pop.querySelector("#pt").onclick=e=>{const b=e.target.closest("[data-part]");if(!b)return;st.part=b.dataset.part;pop.querySelectorAll("#pt button").forEach(x=>x.setAttribute("aria-pressed",x===b))};
   pop.querySelector("#bsave").onclick=()=>{const d=pop.querySelector("#bd").value||date;
     const pid=pop.querySelector("#bp").value;

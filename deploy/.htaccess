@@ -12,3 +12,10 @@ RewriteRule ^api/(.*)$ api.php?path=$1 [QSA,L]
 <FilesMatch "\.(example\.php|md)$">
   Require all denied
 </FilesMatch>
+
+# Sidan ska inte cachas av webbläsaren (annars syns inte uppdateringar förrän cachen rensas)
+<IfModule mod_headers.c>
+  <Files "index.html">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </Files>
+</IfModule>
