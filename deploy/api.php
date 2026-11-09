@@ -387,6 +387,9 @@ function parse_formats(array $rows): ?array {
     if (count($rows) < 2) return null;
     $head = array_map('trim', $rows[0]); while ($head && end($head) === '') array_pop($head); $drop = ($head[0] ?? '') === '' ? 1 : 0;
     $cols = array_slice($head, $drop);
+    // gviz ger första fliken om namnet inte finns – kräv att det ser ut som en leveranslista
+    $looks = false; foreach ($cols as $c) if (preg_match('/filnamn|file ?name|format|land|country|kanal|channel|upplösning|resolution|längd|duration|leverans|deliver/iu', $c)) { $looks = true; break; }
+    if (!$looks) return null;
     $li = -1; foreach ($cols as $i => $c) if (preg_match('/^(land|country|marknad)$/i', $c)) { $li = $i; break; }
     $groups = [];
     foreach (array_slice($rows, 1) as $r) {

@@ -93,6 +93,8 @@ export function parseFormats(rows) {
   let drop = head[0] === "" ? 1 : 0; // första kolumnen är radnummer
   while (head.length && head[head.length - 1] === "") head.pop(); // tomma kolumner i slutet
   const cols = head.slice(drop);
+  // gviz ger första fliken om namnet inte finns – kräv att det ser ut som en leveranslista
+  if (!cols.some((c) => /filnamn|file ?name|format|land|country|kanal|channel|upplösning|resolution|längd|duration|leverans|deliver/i.test(c))) return null;
   const li = cols.findIndex((c) => /^(land|country|marknad)$/i.test(c));
   const groups = new Map();
   for (const r of rows.slice(1)) {
