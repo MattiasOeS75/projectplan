@@ -138,6 +138,8 @@ h2{font-family:var(--display);font-weight:600;font-size:18px;letter-spacing:.06e
   padding:4px 6px;font-size:11px;font-weight:600;letter-spacing:.01em;text-align:left;overflow:hidden;min-width:0;display:flex;flex-direction:column;justify-content:flex-start;gap:1px;line-height:1.2}
 .blk.full{grid-row:1 / span 2} .blk.am{grid-row:1} .blk.pm{grid-row:2}
 .blk span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.blk .hrs{float:right;margin-left:6px;padding:0 5px;border-radius:3px;background:var(--c);color:var(--bg);font-family:var(--mono);font-size:10px;font-weight:700;line-height:15px}
+.blk.cl .hrs{visibility:hidden}
 .blk em{font-style:normal;font-family:var(--mono);font-weight:500;font-size:9px;color:inherit;opacity:.75}
 
 .blk[draggable="true"]{cursor:grab}
@@ -361,6 +363,9 @@ label.f textarea{min-height:70px;resize:vertical}
 <script>
 const PHASES=["Uppstart","Pre-prod","Produktion","Post / VFX","Korr & leverans","Löpande"];
 const PARTS={full:"Heldag",am:"FM",pm:"EM"}, W={full:1,am:.5,pm:.5};
+const DAYH=8; // timmar per heldag
+const bw=b=>b.hours>0?Math.min(b.hours,DAYH*1.5)/DAYH:(W[b.part]||0); // blockets vikt i dagar
+const fmtH=h=>(Math.round(h*2)/2).toString().replace(".",",")+" h";
 const DAYN=["sön","mån","tis","ons","tor","fre","lör"];
 const MON=["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"];
 const S={projects:{},people:{},blocks:{},absence:{}};
@@ -405,7 +410,7 @@ const nid=p=>p+"-"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)
 const isDel=t=>/^leverans/i.test(t||"");
 const msOf=p=>{const l=(p.milestones||[]).slice();if(p.delivery&&!l.some(m=>m.d===p.delivery&&isDel(m.t)))l.push({d:p.delivery,t:"Leverans"});return l.sort((a,b)=>a.d.localeCompare(b.d))};
 function projStats(p){
-  let booked=0;for(const b of Object.values(S.blocks))if(b.projectId===p.id)booked+=W[b.part]||0;
+  let booked=0;for(const b of Object.values(S.blocks))if(b.projectId===p.id)booked+=bw(b);
   const next=msOf(p).find(m=>m.d>=TODAY&&!(m.d===p.delivery&&isDel(m.t)));
   return{booked,next};
 }
@@ -442,7 +447,7 @@ function prevWorkdays(dateStr,n){const out=[dateStr];let d=parse(dateStr);while(
 function deliveryRisk(idx,am){const risk={};
   for(const p of activeProjects()){if(!p.delivery)continue;const win=prevWorkdays(p.delivery,3);const hits=[];
     const ppl=new Set();for(const b of Object.values(S.blocks))if(b.projectId===p.id&&win.includes(b.date))ppl.add(b.personId);
-    for(const pid of ppl){const bad=[];for(const d of win){const load=(idx[pid+"|"+d]||[]).reduce((a,b)=>a+(W[b.part]||0),0)+absFor(am,pid,d).reduce((a,x)=>a+absW(x),0);
+    for(const pid of ppl){const bad=[];for(const d of win){const load=(idx[pid+"|"+d]||[]).reduce((a,b)=>a+bw(b),0)+absFor(am,pid,d).reduce((a,x)=>a+absW(x),0);
         const absent=absFor(am,pid,d).length&&(idx[pid+"|"+d]||[]).some(b=>b.projectId===p.id);
         if(absent)bad.push(d)}
       if(bad.length)hits.push(`${S.people[pid]?.name||pid} är bokad men frånvarande ${bad.sort().map(x=>nice(x)).join(", ")}`)}
@@ -451,7 +456,7 @@ function deliveryRisk(idx,am){const risk={};
 function weekLoads(pid,ds,idx,am){const wk=[];let cur=null;
   for(const d of ds){const w=isoWeek(d);if(!cur||cur.w!==w){if(wk.length>=4)break;cur={w,booked:0,cap:0,over:0};wk.push(cur)}
     const k=iso(d);const ab=absFor(am,pid,k).reduce((a,x)=>a+absW(x),0);cur.cap+=Math.max(0,1-ab);
-    const dl=(idx[pid+"|"+k]||[]).reduce((a,b)=>a+(W[b.part]||0),0);cur.booked+=dl;if(dl+ab>1.001)cur.over++}
+    const dl=(idx[pid+"|"+k]||[]).reduce((a,b)=>a+bw(b),0);cur.booked+=dl;if(dl+ab>1.001)cur.over++}
   return wk}
 
 /* ---------- Grid ---------- */
@@ -495,13 +500,13 @@ function renderGrid(){
     h+=`<button type="button" draggable="true" class="g-n${per.bottleneck?" row-bottle":""}${isRes?" res":""}" data-person="${esc(per.id)}" title="Klicka för att ändra · dra för att flytta raden"><span class="pn">${esc(per.name)}${per.bottleneck?`<span class="flag">Flaskhals</span>`:""}</span><span class="pr">${esc(per.role||"")}</span><span class="wls">${wls}</span></button>`;
     ds.forEach((d,di)=>{const s=iso(d);const bl=(idx[per.id+"|"+s]||[]).sort((a,b)=>"full am pm".indexOf(a.part)-"full am pm".indexOf(b.part));
       const abs=absFor(am,per.id,s);
-      const load=bl.reduce((a,b)=>a+(W[b.part]||0),0)+abs.reduce((a,x)=>a+absW(x),0);
+      const load=bl.reduce((a,b)=>a+bw(b),0)+abs.reduce((a,x)=>a+absW(x),0);
       const dp=delBy[s],ap=!dp&&avBy[s];h+=`<div class="g-c${abs.length?" absday":""}${d.getDay()===1?" mon":""}${s===TODAY?" today":""}${per.bottleneck?" row-bottle":""}${dp?" dl":""}${ap?" avd":""}"${dp?` style="--dc:${pc(dp)}"`:ap?` style="--ac:${pc(ap)}"`:""} data-p="${esc(per.id)}" data-d="${s}">
         <button type="button" class="hit am" data-add="am" aria-label="Blocka FM ${esc(per.name)} ${s}"></button><button type="button" class="hit pm" data-add="pm" aria-label="Blocka EM ${esc(per.name)} ${s}"></button>
         ${abs.map(a=>`<div class="ab ${a.part==="am"||a.part==="pm"?a.part:"full"}" title="${esc((a.type||"Frånvaro")+(a.note?" · "+a.note:"")+" · från Monday Frånvaro")}">${esc(a.type||"Frånvaro")}</div>`).join("")}
         ${bl.map(b=>{const p=S.projects[b.projectId];const pp=p?{...p,id:b.projectId}:null;
           const me=solo(bl,b),cl=me&&di>0&&runs(idx[per.id+"|"+iso(ds[di-1])],b),cr=me&&di<ds.length-1&&runs(idx[per.id+"|"+iso(ds[di+1])],b);
-          return `<div role="button" tabindex="0" draggable="true" class="blk ${b.part}${b.tent?" tent":""}${cl?" cl":""}${cr?" cr":""}${b.note?" has-note":""}${view.focus===b.projectId?" focus":""}" style="--c:${pc(pp)}" data-blk="${esc(b.id)}" title="${esc((p?.name||"Okänt projekt")+" · "+PARTS[b.part]+(b.note?" · "+b.note:"")+(b.tent?" · preliminärt":"")+(b.src==="monday"?" · från Monday":""))}"><span>${esc(p?.code||p?.name||"?")}</span>${b.part!=="full"?`<em>${PARTS[b.part]}</em>`:b.note?`<em>${esc(b.note)}</em>`:""}<button type="button" class="rm" data-rm="${esc(b.id)}" draggable="false" aria-label="Ta bort block" title="Ta bort">−</button><i class="rh l" data-rh="l" aria-hidden="true"></i><i class="rh r" data-rh="r" aria-hidden="true"></i></div>`}).join("")}
+          return `<div role="button" tabindex="0" draggable="true" class="blk ${b.part}${b.tent?" tent":""}${cl?" cl":""}${cr?" cr":""}${b.note?" has-note":""}${view.focus===b.projectId?" focus":""}" style="--c:${pc(pp)}" data-blk="${esc(b.id)}" title="${esc((p?.name||"Okänt projekt")+" · "+PARTS[b.part]+(b.hours?" · "+fmtH(b.hours):"")+(b.note?" · "+b.note:"")+(b.tent?" · preliminärt":"")+(b.src==="monday"?" · från Monday":""))}"><span>${esc(p?.code||p?.name||"?")}${b.hours?`<b class="hrs">${fmtH(b.hours)}</b>`:""}</span>${b.part!=="full"?`<em>${PARTS[b.part]}</em>`:b.note?`<em>${esc(b.note)}</em>`:""}<button type="button" class="rm" data-rm="${esc(b.id)}" draggable="false" aria-label="Ta bort block" title="Ta bort">−</button><i class="rh l" data-rh="l" aria-hidden="true"></i><i class="rh r" data-rh="r" aria-hidden="true"></i></div>`}).join("")}
         ${bl.length?`<button type="button" class="plus" data-add="${bl.some(b=>b.part==="am"||b.part==="full")?"pm":"am"}" aria-label="Lägg till block">+</button>`:""}
 </div>`})
   }
@@ -569,14 +574,15 @@ function openPop(html,anchor){
 function openDrawer(html){$("#layer").innerHTML=`<div class="scrim" data-close></div><div class="drawer" role="dialog" aria-modal="true">${html}</div>`;const f=$("#layer .drawer input");f&&f.focus();return $("#layer .drawer")}
 addEventListener("keydown",e=>{if(e.key==="Escape")close()});
 
-function blockEditor({id,personId,date,part,projectId,note,tent},anchor){
+function blockEditor({id,personId,date,part,projectId,note,tent,hours},anchor){
   const projs=activeProjects();if(!projs.length){toast("Lägg till en produktion först.");return}
   const st={part,projectId:projectId||view.focus||projs[0].id};
   const per=S.people[personId];
   const pop=openPop(`<div><h4>${id?"Ändra block":"Blocka tid"}</h4><div class="sub">${esc(per?.name||"")} · ${DAYN[parse(date).getDay()]} ${nice(date)}</div></div>
     <div class="pcombo" id="pp"><div class="psel" id="ppsel"></div><input id="ppq" placeholder="Sök produktion – namn eller projektnr…" autocomplete="off" aria-label="Sök produktion"><div class="plist" id="ppl" hidden></div></div>
     <div class="seg" id="pt">${Object.entries(PARTS).map(([k,v])=>`<button type="button" data-part="${k}" aria-pressed="${st.part===k}">${v}</button>`).join("")}</div>
-    <label class="f">Notering (valfri)<input id="bn" value="${esc(note||"")}" placeholder="t.ex. korrfix, render, på set"></label>
+    <div class="two"><label class="f">Timmar (valfritt)<input type="number" id="bh" inputmode="decimal" min="0.5" max="12" step="0.5" value="${hours||""}" placeholder="t.ex. 4"></label>
+    <label class="f">Notering (valfri)<input id="bn" value="${esc(note||"")}" placeholder="t.ex. korrfix, render, på set"></label></div>
     <label class="chk"><input type="checkbox" id="btent"${tent?" checked":""}> Preliminär bokning (inte bekräftad än)</label>
     <div class="two"><label class="f">Person<select id="bp">${sorted("people").map(p=>`<option value="${esc(p.id)}"${p.id===personId?" selected":""}>${esc(p.name)}</option>`).join("")}</select></label>
     <label class="f">Datum<input type="date" id="bd" value="${date}"></label></div>
@@ -603,7 +609,10 @@ function blockEditor({id,personId,date,part,projectId,note,tent},anchor){
   pop.querySelector("#bsave").onclick=()=>{const d=pop.querySelector("#bd").value||date;
     const pid=pop.querySelector("#bp").value;
     if(absFor(absMap(),pid,d).length)toast(`${S.people[pid]?.name||""} är frånvarande ${nice(d)} enligt Monday.`);
-    put("blocks",id||nid("b"),{...(id?S.blocks[id]:{}),personId:pid,date:d,part:st.part,projectId:st.projectId,note:pop.querySelector("#bn").value.trim(),tent:pop.querySelector("#btent").checked});close()};
+    const hv=parseFloat(String(pop.querySelector("#bh").value).replace(",","."));const hours=hv>0?Math.round(hv*2)/2:undefined;
+    const data={...(id?S.blocks[id]:{}),personId:pid,date:d,part:st.part,projectId:st.projectId,note:pop.querySelector("#bn").value.trim(),tent:pop.querySelector("#btent").checked};
+    if(hours)data.hours=hours;else delete data.hours;
+    put("blocks",id||nid("b"),data);close()};
   const dl=pop.querySelector("#bdel");if(dl)dl.onclick=()=>{del("blocks",id);close()};
 }
 
