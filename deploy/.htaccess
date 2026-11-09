@@ -7,7 +7,7 @@ RewriteRule ^api/(.*)$ api.php?path=$1 [QSA,L]
 # AuthUserFile måste vara den absoluta sökvägen till .htpasswd på servern (GET api/info visar katalogen).
 AuthType Basic
 AuthName "Crosby produktionsplan"
-AuthUserFile /DIN/ABSOLUTA/SOKVAG/projectplan/.htpasswd
+AuthUserFile /data/e/e/ee0f04f1-bc00-4ba0-adf2-4b60172dc598/cby.se/web/projectplan/.htpasswd
 Require valid-user
 
 <Files "config.php">

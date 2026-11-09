@@ -18,8 +18,8 @@
 
 | När | Kommando |
 |---|---|
-| var 15:e min, kontorstid | `php /ABSOLUT/SOKVAG/projectplan/api.php sync` |
-| kl 03:00 | `php /ABSOLUT/SOKVAG/projectplan/api.php nightly` (synk + backup) |
+| var 15:e min, kontorstid | `php /data/e/e/ee0f04f1-bc00-4ba0-adf2-4b60172dc598/cby.se/web/projectplan/api.php sync` |
+| kl 03:00 | `php /data/e/e/ee0f04f1-bc00-4ba0-adf2-4b60172dc598/cby.se/web/projectplan/api.php nightly` (synk + backup) |
 
 `backup` skriver `backups/plan-ÅÅÅÅ-MM-DD.json` (30 dagar sparas, mappen är blockerad för webben).
 Kommandona går direkt i PHP, utan HTTP, så lösenordsskyddet påverkar dem inte.
