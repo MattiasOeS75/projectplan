@@ -57,6 +57,7 @@ h2{font-family:var(--display);font-weight:600;font-size:18px;letter-spacing:.06e
 .pipe{overflow-x:auto;padding-bottom:4px}
 .phases{display:grid;grid-template-columns:repeat(6,minmax(210px,1fr));gap:10px;min-width:1320px}
 .phase{display:flex;flex-direction:column;gap:8px;min-width:0}
+.phase.drop{outline:2px dashed var(--accent);outline-offset:4px;border-radius:8px;background:color-mix(in srgb,var(--accent) 6%,transparent)}
 .phase h3{font-family:var(--mono);font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0;
   padding-bottom:6px;border-bottom:2px solid var(--line);display:flex;justify-content:space-between}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 11px;display:flex;flex-direction:column;gap:5px;
@@ -449,7 +450,7 @@ function renderPipeline(){
   const pm=$("#pipeMode");if(pm){pm.textContent=pipeCompact?"Detaljer":"Kompakt";pm.setAttribute("aria-pressed",String(pipeCompact))}
   $("#phases").innerHTML=PHASES.map((ph,i)=>{
     const list=ps.filter(p=>(p.phase??0)===i);
-    return `<div class="phase"><h3><span>${esc(ph)}</span><span>${list.length||""}</span></h3>${list.map(p=>{
+    return `<div class="phase" data-phase="${i}"><h3><span>${esc(ph)}</span><span>${list.length||""}</span></h3>${list.map(p=>{
       const s=projStats(p);const left=p.delivery?workdaysUntil(p.delivery):null;
       const own=p.owner&&S.people[p.owner]?S.people[p.owner].name.split(" ")[0]:"";
       return `<div role="button" tabindex="0" draggable="true" class="card${left!=null&&left>=0&&left<=5?" due":""}" style="--c:${pc(p)}" data-proj="${esc(p.id)}" data-dragproj="${esc(p.id)}" data-tip="${esc(p.id)}">
@@ -847,7 +848,16 @@ grid.addEventListener("drop",e=>{const c=e.target.closest(".g-c");if(!c||!drag||
   else{const b=S.blocks[drag.id];if(b){const nb={...b,personId:c.dataset.p,date:c.dataset.d,part};
     if(e.altKey)put("blocks",nid("b"),nb);else if(nb.personId!==b.personId||nb.date!==b.date||nb.part!==b.part)put("blocks",drag.id,nb)}}
   drag=null});
-document.addEventListener("dragend",()=>{drag=null;clearDrop();clearPdrop()});
+// Dra projektkort mellan faserna i pipelinen
+const phasesEl=$("#phases");
+const clearPhdrop=()=>phasesEl.querySelectorAll(".phase.drop").forEach(x=>x.classList.remove("drop"));
+phasesEl.addEventListener("dragover",e=>{if(!drag||drag.kind!=="proj")return;const ph=e.target.closest(".phase");if(!ph)return;e.preventDefault();e.dataTransfer.dropEffect="move";
+  phasesEl.querySelectorAll(".phase.drop").forEach(x=>x!==ph&&x.classList.remove("drop"));ph.classList.add("drop")});
+phasesEl.addEventListener("dragleave",e=>{const ph=e.target.closest(".phase");if(ph&&!ph.contains(e.relatedTarget))ph.classList.remove("drop")});
+phasesEl.addEventListener("drop",e=>{if(!drag||drag.kind!=="proj")return;const ph=e.target.closest(".phase");if(!ph)return;e.preventDefault();
+  const p=S.projects[drag.id],to=+ph.dataset.phase;clearPhdrop();
+  if(p&&p.phase!==to){put("projects",drag.id,{...p,phase:to});toast(`${p.name} → ${PHASES[to]}`)}drag=null});
+document.addEventListener("dragend",()=>{drag=null;clearDrop();clearPdrop();clearPhdrop()});
 document.addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.matches?.('[role="button"]')){e.preventDefault();e.target.click()}});
 
 {let raf=0;grid.parentElement.addEventListener("scroll",()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(updRange)},{passive:true});
