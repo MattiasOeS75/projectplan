@@ -47,6 +47,9 @@ h2{font-family:var(--display);font-weight:600;font-size:18px;letter-spacing:.06e
 .btn:hover{border-color:var(--muted)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .btn.danger{color:var(--bad)}
+.btn.busy{opacity:.7;pointer-events:none}
+.btn.busy::before{content:"";display:inline-block;width:10px;height:10px;margin-right:6px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .8s linear infinite;vertical-align:-1px}
+@keyframes spin{to{transform:rotate(360deg)}}
 .btn.ghost{background:transparent}
 
 /* Pipeline */
@@ -332,7 +335,7 @@ label.f textarea{min-height:70px;resize:vertical}
 <div class="wrap">
   <header class="top">
     <h1>Crosby Produktionsplan<small id="sub">Beläggning per person · FM/EM · delad med teamet</small></h1>
-    <div class="bar"><span id="note" class="note" role="status"></span></div>
+    <div class="bar"><span id="note" class="note" role="status"></span><button type="button" class="btn" id="syncBtn" title="Hämta projekt, personer, frånvaro och tidsplaner från Monday och Google Sheets">⟳ Synka Monday</button></div>
   </header>
 
   <nav class="tabs" role="tablist" aria-label="Vy">
@@ -406,6 +409,19 @@ const HEX=/^#[0-9a-f]{6}$/i;
 const ink=p=>{const c=p?.color;if(typeof c==="string"&&HEX.test(c)){const n=parseInt(c.slice(1),16);return (0.299*(n>>16&255)+0.587*(n>>8&255)+0.114*(n&255))>150?"#111":"#fff"}return"var(--bg)"};
 const pc=p=>typeof p?.color==="string"&&HEX.test(p.color)?p.color:`var(--p${(+p?.color||0)%9})`;
 
+async function syncMonday(){
+  const b=$("#syncBtn");if(!b||b.classList.contains("busy"))return;
+  const label=b.textContent;b.classList.add("busy");b.textContent="Synkar…";
+  try{
+    const r=await fetch("api/monday/sync",{method:"POST"});const j=await r.json().catch(()=>({}));
+    if(!r.ok||j.error)throw new Error(j.error||r.statusText);
+    const sh=j.sheets||{};const err=(sh.errors||[]).length;
+    toast(`Synkat: ${j.projects??0} projekt, ${j.people??0} personer, ${j.absence??0} frånvaro, ${sh.synced??0} tidsplaner${err?` · ${err} tidsplan(er) kunde inte läsas`:""}`);
+    if(err)console.warn("Tidsplaner:",sh.errors);
+    if(typeof window.__refresh==="function")window.__refresh();
+  }catch(e){toast("Synk misslyckades: "+e.message)}
+  finally{b.classList.remove("busy");b.textContent=label}
+}
 function toast(t,undo){const el=$("#toast");el.textContent=t;
   if(undo){const b=document.createElement("button");b.type="button";b.textContent="Ångra";b.onclick=()=>{undo();el.hidden=true};el.appendChild(b)}
   el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,undo?6000:2600)}
@@ -737,6 +753,7 @@ document.addEventListener("click",e=>{
   const np=t.closest("[data-newproj]");if(np){projectEditor(null,+np.dataset.newproj);return}
   if(t.closest("#newProj")){projectEditor(null,0);return}
   const ua=t.closest("[data-unarch]");if(ua){const p=S.projects[ua.dataset.unarch];if(p){put("projects",ua.dataset.unarch,{...p,archived:false});toast(`${p.name} är tillbaka i pipelinen.`)}return}
+  if(t.closest("#syncBtn")){syncMonday();return}
   if(t.closest("#pipeMode")){pipeCompact=!pipeCompact;try{localStorage.setItem("pipeCompact",pipeCompact?"1":"0")}catch(e){}renderPipeline();return}
   const md=t.closest("[data-msday]");if(md){dayPopover(md.dataset.msday,md);return}
   const cf=t.closest("[data-colorfor]");if(cf){e.stopPropagation();quickColor(cf.dataset.colorfor);return}
@@ -842,6 +859,7 @@ function localDb(base){
   const write=async(col,id,method,body)=>{const r=await fetch(`${base}/${col}/${encodeURIComponent(id)}`,{method,headers:{"content-type":"application/json"},body:body?JSON.stringify(body):undefined});
     if(!r.ok)throw Object.assign(new Error(r.statusText),{code:r.status===403?"invalid_argument":"error"});notify(col)};
   setInterval(()=>Object.keys(subs).forEach(notify),15000);
+  window.__refresh=()=>Object.keys(subs).forEach(notify);
   return {collection(col){return{
     onSnapshot(cb,err){const run=()=>load(col).then(o=>cb({docs:Object.entries(o).map(([id,data])=>({id,data:()=>data})),metadata:{fromCache:false}})).catch(e=>err?.(e));
       (subs[col]??=[]).push(run);run();return()=>{subs[col]=subs[col].filter(f=>f!==run)}},
