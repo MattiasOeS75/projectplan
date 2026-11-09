@@ -10,8 +10,7 @@
  * Konfiguration i config.php (se config.example.php).
  */
 declare(strict_types=1);
-header('Content-Type: application/json; charset=utf-8');
-header('Cache-Control: no-store');
+if (PHP_SAPI !== 'cli') { header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); }
 
 function main(): void {
 $cfg = @include __DIR__ . '/config.php';
@@ -23,6 +22,8 @@ $method = $_SERVER['REQUEST_METHOD'];
 $COLS = ['projects', 'people', 'blocks', 'absence'];
 
 try {
+    if (($parts[0] ?? '') === 'info') out(['dir' => __DIR__, 'php' => PHP_VERSION, 'time' => date('c')]);
+
     $db = pdo($cfg);
 
     // ---- Monday ----
@@ -76,8 +77,8 @@ function pdo(array $cfg): PDO {
     $dsn = sprintf('pgsql:host=%s;port=%d;dbname=%s', $cfg['PGHOST'], (int)($cfg['PGPORT'] ?? 5432), $cfg['PGDATABASE']);
     $dsn .= ';sslmode=' . (empty($cfg['PGSSL']) ? 'disable' : 'prefer');
     $db = new PDO($dsn, $cfg['PGUSER'], $cfg['PGPASSWORD'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
-    static $init = false;
-    if (!$init) { $db->exec(file_get_contents(__DIR__ . '/schema.sql')); $init = true; }
+    // Skapa/uppdatera schemat bara när något saknas (docs_history är det senaste tillägget)
+    if (!$db->query("SELECT to_regclass('public.docs_history')")->fetchColumn()) $db->exec(file_get_contents(__DIR__ . '/schema.sql'));
     return $db;
 }
 
@@ -202,7 +203,7 @@ function map_monday(array $boards, array $existing): array {
             $producent = $col($it, 'Producent');
             $blob = '';
             foreach ($it['columns'] as $c) $blob .= json_encode($c['value'] ?? '', JSON_UNESCAPED_SLASHES) . ' ' . ($c['text'] ?? '') . ' ';
-            $sheetUrl = preg_match('#https://docs\.google\.com/spreadsheets/d/[A-Za-z0-9_-]+[^"\s\\]*#', $blob, $mm) ? $mm[0] : '';
+            $sheetUrl = preg_match('~https://docs\.google\.com/spreadsheets/d/[A-Za-z0-9_-]+[^"\s\\\\]*~', $blob, $mm) ? $mm[0] : '';
             // Fas: Pitch → Uppstart. Pågående → Produktion vid första synk eller när gruppen bytts i Monday; annars behålls manuellt satt fas.
             $sameGroup = isset($prev['source']['monday']) && norm($prev['source']['monday']['group'] ?? '') === $g;
             $phase = $g === 'pitch' ? 0 : (($sameGroup && isset($prev['phase']) && (int)$prev['phase'] !== 0) ? $prev['phase'] : GROUPS[$g]); // Pågående står aldrig kvar i Uppstart
@@ -233,7 +234,8 @@ function map_resources(array $users, ?array $frilans, ?array $franvaro, array $e
     $order = 0; foreach ($prev as $p) $order = max($order, (int)($p['order'] ?? 0));
     $add = function (string $id, array $data) use (&$out, $prev, &$order) {
         $pp = $prev[$id] ?? [];
-        $out['people'][$id] = array_merge(['kind' => 'person'], $pp, $data, ['order' => $pp['order'] ?? ++$order]);
+        $out['people'][$id] = array_merge(['kind' => 'person'], $pp, $data, ['order' => $pp['order'] ?? ++$order, 'inactive' => false]);
+        unset($out['people'][$id]['inactiveSince']);
     };
     foreach ($users as $u) $add('u' . $u['id'], ['name' => $u['name'], 'role' => $prev['u' . $u['id']]['role'] ?? ($u['title'] ?? ''), 'source' => ['monday' => ['userId' => (int)$u['id']]]]);
     if ($frilans) {
@@ -263,7 +265,8 @@ function map_resources(array $users, ?array $frilans, ?array $franvaro, array $e
             }
             $own = $raw($it, 'Period');
             if (!$periods && is_array($own) && !empty($own['from']) && !empty($own['to'])) $periods[] = ['id' => 'a' . $it['item_id'], 'from' => $own['from'], 'to' => $own['to'], 'note' => $it['name']];
-            foreach ($periods as $p) $out['absence'][$p['id']] = ['personId' => $personId, 'from' => $p['from'], 'to' => $p['to'], 'part' => 'full', 'type' => $type, 'note' => $p['note'],
+            $cut = date('Y') . '-01-01'; // äldre frånvaro är personuppgifter vi inte behöver
+            foreach ($periods as $p) if ($p['to'] >= $cut) $out['absence'][$p['id']] = ['personId' => $personId, 'from' => $p['from'], 'to' => $p['to'], 'part' => 'full', 'type' => $type, 'note' => $p['note'],
                 'source' => ['monday' => ['boardId' => $it['board_id'], 'item' => $it['item_id']]]];
         }
     }
@@ -287,9 +290,12 @@ function monday_sync(PDO $db, array $cfg, array $boardIds): array {
     $fv = ($cfg['MONDAY_FRANVARO'] ?? '1071497633') ? monday_board_items($cfg, (string)($cfg['MONDAY_FRANVARO'] ?? '1071497633'), true) : null;
     $res = map_resources($users, $fr, $fv, $existing);
     foreach ($res['people'] as $id => $data) { doc_set($db, 'people', $id, $data); $existing['people'][$id] = $data; }
+    // Personer från Monday som inte längre finns där (slutat/avaktiverade) → inaktiva, döljs i gridden men behåller historik
+    if ($users) foreach ($existing['people'] as $id => $p) {
+        $fromMonday = isset($p['source']['monday']['userId']) || isset($p['source']['monday']['boardId']);
+        if ($fromMonday && !isset($res['people'][$id]) && empty($p['inactive'])) { $p['inactive'] = true; $p['inactiveSince'] = date('Y-m-d'); doc_set($db, 'people', $id, $p); $existing['people'][$id] = $p; }
+    }
     $del = $db->prepare('DELETE FROM docs WHERE collection = ? AND id = ?');
-    // Personer som tidigare synkats från Frilansare-boardet tas bort när den är avstängd
-    if (empty($cfg['MONDAY_FRILANS'])) foreach ($existing['people'] as $id => $p) if (!empty($p['source']['monday']['boardId']) && !isset($res['people'][$id])) { $del->execute(['people', $id]); unset($existing['people'][$id]); }
     foreach ($existing['absence'] as $id => $a) if (isset($a['source']['monday']) && !isset($res['absence'][$id])) $del->execute(['absence', $id]);
     foreach ($res['absence'] as $id => $data) doc_set($db, 'absence', $id, $data);
     $mapped = map_monday($boards, $existing);
@@ -435,4 +441,33 @@ function sheets_sync(PDO $db): array {
     return $res;
 }
 
-if (!defined('PLAN_NO_RUN')) main();
+/* ================= Backup ================= */
+function backup(PDO $db, int $keepDays = 30): array {
+    $dir = __DIR__ . '/backups'; if (!is_dir($dir)) mkdir($dir, 0755, true);
+    if (!is_file("$dir/.htaccess")) file_put_contents("$dir/.htaccess", "Require all denied\n");
+    $dump = ['exported' => date('c')];
+    foreach (['projects', 'people', 'blocks', 'absence'] as $c) $dump[$c] = doc_list($db, $c);
+    $file = "$dir/plan-" . date('Y-m-d') . '.json';
+    file_put_contents($file, json_encode($dump, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    $removed = 0; foreach (glob("$dir/plan-*.json") as $f) if (filemtime($f) < time() - $keepDays * 86400) { unlink($f); $removed++; }
+    return ['file' => basename($file), 'bytes' => filesize($file), 'removed' => $removed];
+}
+
+/* ================= CLI (cron) =================
+ *   php api.php sync     – Monday + tidsplaner
+ *   php api.php backup   – JSON-dump till backups/ (30 dagar sparas)
+ *   php api.php nightly  – båda
+ */
+function cli(array $argv): void {
+    $cfg = include __DIR__ . '/config.php';
+    $db = pdo($cfg);
+    $cmd = $argv[1] ?? 'nightly'; $out = [];
+    if (in_array($cmd, ['sync', 'nightly'], true)) {
+        $ids = array_values(array_filter(array_map('trim', explode(',', $cfg['MONDAY_BOARDS'] ?? ''))));
+        $out['monday'] = monday_sync($db, $cfg, $ids); $out['sheets'] = sheets_sync($db);
+    }
+    if (in_array($cmd, ['backup', 'nightly'], true)) $out['backup'] = backup($db);
+    echo json_encode($out, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), "\n";
+}
+
+if (!defined('PLAN_NO_RUN')) { if (PHP_SAPI === 'cli') cli($argv); else main(); }

@@ -10,12 +10,15 @@ API (`localDb`-shim längst ner i filen).
 ## Struktur
 
 ```
+deploy/   det som körs på webbhotellet: index.html, api.php (API + Monday/Sheets-synk + cron-kommandon), .htaccess
+public/   index.html – samma sida, för lokal utveckling (kopieras till deploy/)
+server/   lokal utvecklingsserver (Express + Postgres eller JSON-fil). Ingen synk – den sköts av api.php.
+db/       schema.sql – docs, docs_history (historik), monday_items
+tests/    php tests/run.php – parsers och mappning mot fixturer (körs i CI vid push)
 source/   originalartefakten (referens, ändras inte)
-public/   index.html – sidan som servern levererar
-server/   server.js (Express, API + statiska filer), store.js (Postgres / JSON-fil), monday.js (synk)
-db/       schema.sql – tabeller docs (planeringsdata) och monday_items (rå Monday-data)
-scripts/  boards.js (lista Monday-boards), sync.js (kör synk från terminalen)
 ```
+
+**PHP-API:t är sanningen.** All synklogik finns i `deploy/api.php`; Node-servern är bara för att jobba lokalt med sidan.
 
 ## Kom igång
 
@@ -26,7 +29,8 @@ npm start                # http://localhost:3000
 ```
 
 Utan `PGHOST` i `.env` körs allt mot `data/local.json` – bra för att testa. Med `PGHOST` satt skapas
-tabellerna automatiskt vid start (`db/schema.sql`).
+tabellerna automatiskt vid start (`db/schema.sql`). Synk lokalt: `npm run sync` (kräver `php` och `deploy/config.php`).
+Tester: `npm test`.
 
 ## API
 
@@ -36,7 +40,11 @@ tabellerna automatiskt vid start (`db/schema.sql`).
 | PUT | `/api/:col/:id` | skapa/ersätt dokument (JSON-body) |
 | DELETE | `/api/:col/:id` | ta bort |
 | GET | `/api/monday/boards` | boards kontot ser (id, workspace, namn) |
-| POST | `/api/monday/sync?boards=1,2` | hämta items → `monday_items` → mappa → `projects` |
+| POST | `/api/monday/sync?boards=1,2` | Monday-synk + tidsplaner (samma som knappen *Synka Monday*) |
+| POST | `/api/sheets/sync` | bara tidsplaner |
+| GET | `/api/info` | serverns katalog/PHP-version (för .htaccess och cron) |
+
+Sidan och API:t ligger bakom inloggning (Basic Auth, se `deploy/README.md`).
 
 ## Datamodell (samma som artefakten)
 
@@ -62,9 +70,7 @@ Manuellt inlagda milstolpar påverkas inte av synken.
 
 ## Monday
 
-1. `npm run boards` – lista boards och hitta id:n.
-2. Sätt `MONDAY_BOARDS=…` i `.env`.
-3. `npm run sync` (eller POST `/api/monday/sync`).
+Synken körs av knappen *Synka Monday*, av cron på webbhotellet (`php api.php sync`) eller `npm run sync` lokalt.
 
 Mappningen (`mapMonday()` i `server/monday.js`) är skriven för boardet **Projektöversikt** (1071363420):
 
@@ -87,8 +93,8 @@ Lokala fält (färg, väntar på, budget, leveranser) skrivs aldrig över av syn
 
 | Monday | Plan |
 |---|---|
-| Användare (aktiva medlemmar, ej gäster/åskådare) | `people` `u<userId>` – namn, roll = Monday-titel (lokalt ändrad roll behålls) |
+| Användare (aktiva medlemmar, ej gäster/åskådare) | `people` `u<userId>` – namn, roll = Monday-titel (lokalt ändrad roll behålls). Försvinner personen ur Monday markeras den `inactive` och döljs i gridden; block och ägarskap behålls, och den återaktiveras om den dyker upp igen |
 | **Frilansare** (1083892887) – *av som standard*; sätt `MONDAY_FRILANS` för att ta med gruppen *Aktiva Frilansare* | `people` `m<item>` – roll = Titel/Roll · frilans |
-| **Frånvaro** (1071497633), alla grupper utom INKOMMET / Ej Godkända | `absence` `a<subitem>` per period i underobjekten (Typ av Frånvaro → typ); personen matchas på *Medarbetare* |
+| **Frånvaro** (1071497633), alla grupper utom INKOMMET / Ej Godkända | `absence` `a<subitem>` per period i underobjekten (Typ av Frånvaro → typ); personen matchas på *Medarbetare*. Bara perioder som slutar innevarande år eller senare tas med |
 
 Ordningen på personer i gridden är lokal och behålls. Frånvaro från Monday ersätts vid varje synk; manuellt inlagd frånvaro rörs inte.

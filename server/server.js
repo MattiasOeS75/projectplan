@@ -1,11 +1,9 @@
-// Crosby produktionsplan – API + statisk server.
+// Crosby produktionsplan – lokal utvecklingsserver (statisk sida + dokument-API). Produktion: deploy/api.php.
 // Kör: npm start   (läser .env i repots rot)
 import "dotenv/config";
 import express from "express";
 import path from "node:path";
 import { createStore, isCollection } from "./store.js";
-import { syncMonday, listBoards } from "./monday.js";
-import { syncSheets } from "./sheets.js";
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -29,22 +27,8 @@ app.delete("/api/:col/:id", col, async (req, res, next) => {
   try { await store.del(req.params.col, req.params.id); res.json({ ok: true }); } catch (e) { next(e); }
 });
 
-// Monday
-app.get("/api/monday/boards", async (_req, res, next) => {
-  try { res.json(await listBoards()); } catch (e) { next(e); }
-});
-app.post("/api/monday/sync", async (req, res, next) => {
-  try {
-    const boardIds = String(req.query.boards || "").split(",").filter(Boolean);
-    const monday = await syncMonday(store, { boardIds });
-    const sheets = await syncSheets(store);
-    res.json({ ...monday, sheets });
-  } catch (e) { next(e); }
-});
-// Tidsplaner (Google Sheets) → milstolpar, leveransdag, leveranslista
-app.post("/api/sheets/sync", async (_req, res, next) => {
-  try { res.json(await syncSheets(store)); } catch (e) { next(e); }
-});
+// Synk (Monday/Sheets) sköts av deploy/api.php på webbhotellet – lokalt: php deploy/api.php sync
+app.post(["/api/monday/sync", "/api/sheets/sync"], (_req, res) => res.status(501).json({ error: "Synk körs i PHP-API:t (deploy/api.php). Lokalt: php deploy/api.php sync" }));
 
 app.use(express.static(path.resolve("public")));
 app.use((err, _req, res, _next) => { console.error(err); res.status(500).json({ error: err.message }); });

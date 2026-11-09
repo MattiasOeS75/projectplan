@@ -7,9 +7,9 @@
   "scripts": {
     "start": "node server/server.js",
     "dev": "node --watch server/server.js",
-    "sync": "node scripts/sync.js",
-    "boards": "node scripts/boards.js",
-    "sheets": "node scripts/sheets.js"
+    "sync": "php deploy/api.php sync",
+    "backup": "php deploy/api.php backup",
+    "test": "php tests/run.php"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

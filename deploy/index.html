@@ -494,7 +494,7 @@ function weekLoads(pid,ds,idx,am){const wk=[];let cur=null;
 /* ---------- Grid ---------- */
 function days(w=view.weeks){const out=[];for(let i=0;i<w*7;i++){const d=addD(view.start,i);const g=d.getDay();if(g&&g<6)out.push(d)}return out}
 function renderGrid(){
-  const RW=Math.max(view.weeks,12), ds=days(RW), vis=days(view.weeks), ps=sorted("people").sort((a,b)=>(a.kind==="resource")-(b.kind==="resource")), projs=activeProjects();
+  const RW=Math.max(view.weeks,12), ds=days(RW), vis=days(view.weeks), ps=activePeople(), projs=activeProjects();
   const wrapEl=$("#grid").parentElement;
   const nameW=parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--namew"))||168;
   const minW=view.weeks>4?50:view.weeks>2?66:92;
@@ -618,7 +618,7 @@ function blockEditor({id,personId,date,part,projectId,note,tent,hours},anchor){
     <div class="two"><label class="f">Timmar (valfritt)<input type="number" id="bh" inputmode="decimal" min="0.5" max="12" step="0.5" value="${hours||""}" placeholder="t.ex. 4"></label>
     <label class="f">Notering (valfri)<input id="bn" value="${esc(note||"")}" placeholder="t.ex. korrfix, render, på set"></label></div>
     <label class="chk"><input type="checkbox" id="btent"${tent?" checked":""}> Preliminär bokning (inte bekräftad än)</label>
-    <div class="two"><label class="f">Person<select id="bp">${sorted("people").map(p=>`<option value="${esc(p.id)}"${p.id===personId?" selected":""}>${esc(p.name)}</option>`).join("")}</select></label>
+    <div class="two"><label class="f">Person<select id="bp">${activePeople().map(p=>`<option value="${esc(p.id)}"${p.id===personId?" selected":""}>${esc(p.name)}</option>`).join("")}</select></label>
     <label class="f">Datum<input type="date" id="bd" value="${date}"></label></div>
     <div class="acts">${id?`<button type="button" class="btn danger" id="bdel">Ta bort</button>`:"<span></span>"}<div><button type="button" class="btn" data-close>Avbryt</button><button type="button" class="btn primary" id="bsave">${id?"Spara":"Blocka"}</button></div></div>`,anchor);
   {const sel=pop.querySelector("#ppsel"),q=pop.querySelector("#ppq"),list=pop.querySelector("#ppl");let hi=0,hits=[];
@@ -650,7 +650,8 @@ function blockEditor({id,personId,date,part,projectId,note,tent,hours},anchor){
   const dl=pop.querySelector("#bdel");if(dl)dl.onclick=()=>{del("blocks",id);close()};
 }
 
-function orderedPeople(){return sorted("people").sort((a,b)=>(a.kind==="resource")-(b.kind==="resource"))}
+function orderedPeople(){return activePeople()}
+const activePeople=()=>sorted("people").filter(p=>!p.inactive).sort((a,b)=>(a.kind==="resource")-(b.kind==="resource"));
 function movePerson(id,targetId,after){const list=orderedPeople().map(p=>p.id).filter(x=>x!==id);
   let i=targetId?list.indexOf(targetId):list.length;if(i<0)i=list.length;if(after)i++;list.splice(i,0,id);
   list.forEach((pid,n)=>{const p=S.people[pid];if(p&&p.order!==n+1)put("people",pid,{...p,order:n+1})})}
@@ -679,7 +680,7 @@ function projectEditor(id,phase){
     <label class="f">Kund / info<input id="fcl" value="${esc(p.client||"")}" placeholder="t.ex. 36 filmer SE/FI/NO"></label>
     <div class="f" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:500">Färg<div class="sw" id="fsw">${[...Array(9)].map((_,i)=>`<button type="button" style="--c:var(--p${i})" data-c="${i}" aria-pressed="${color!==null&&typeof color!=="string"&&i===+color}" aria-label="Färg ${i+1}"></button>`).join("")}<label class="own" title="Egen färg" aria-pressed="${typeof color==="string"}" style="--own:${typeof color==="string"&&HEX.test(color)?color:"transparent"}"><input type="color" id="fcol" aria-label="Välj egen färg" value="${typeof color==="string"&&HEX.test(color)?color:"#3366cc"}"></label></div></div>
     <div class="two"><label class="f">Fas<select id="fph">${PHASES.map((x,i)=>`<option value="${i}"${i===(p.phase??0)?" selected":""}>${x}</option>`).join("")}</select></label>
-    <label class="f">Ansvarig<select id="fo"><option value="">–</option>${sorted("people").map(u=>`<option value="${esc(u.id)}"${u.id===p.owner?" selected":""}>${esc(u.name)}</option>`).join("")}</select></label></div>
+    <label class="f">Ansvarig<select id="fo"><option value="">–</option>${sorted("people").filter(u=>!u.inactive||u.id===p.owner).map(u=>`<option value="${esc(u.id)}"${u.id===p.owner?" selected":""}>${esc(u.name)}</option>`).join("")}</select></label></div>
     <label class="f">Status<textarea id="fs">${esc(p.status||"")}</textarea></label>
     <label class="f">Väntar på (kund, material…)<input id="fw" value="${esc(p.waiting||"")}" placeholder="lämna tomt om inget"></label>
     <label class="f">Tidsplan (länk till Google Kalkylark eller Excel i Drive)<input id="fsheet" type="url" value="${esc(p.sheet||"")}" placeholder="https://docs.google.com/spreadsheets/…"></label>

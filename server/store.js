@@ -39,16 +39,6 @@ async function pgStore() {
     async del(col, id) {
       await pool.query("DELETE FROM docs WHERE collection=$1 AND id=$2", [col, id]);
     },
-    async upsertMondayItems(items) {
-      for (const it of items) {
-        await pool.query(
-          `INSERT INTO monday_items (board_id,item_id,name,group_id,columns) VALUES ($1,$2,$3,$4,$5)
-           ON CONFLICT (board_id,item_id) DO UPDATE SET name=EXCLUDED.name, group_id=EXCLUDED.group_id,
-           columns=EXCLUDED.columns, synced_at=now()`,
-          [it.board_id, it.item_id, it.name, it.group_id, it.columns]
-        );
-      }
-    },
     async close() { await pool.end(); },
   };
 }
@@ -64,10 +54,6 @@ function fileStore(file) {
     async list(col) { return { ...db[col] }; },
     async set(col, id, data) { db[col][id] = data; save(); },
     async del(col, id) { delete db[col][id]; save(); },
-    async upsertMondayItems(items) {
-      for (const it of items) db.monday_items[`${it.board_id}:${it.item_id}`] = it;
-      save();
-    },
     async close() {},
   };
 }

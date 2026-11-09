@@ -3,17 +3,23 @@ RewriteEngine On
 RewriteBase /projectplan/
 RewriteRule ^api/(.*)$ api.php?path=$1 [QSA,L]
 
+# Inloggning för hela sidan (API inkluderat). Användare/lösen i .htpasswd – se deploy/README.md.
+# AuthUserFile måste vara den absoluta sökvägen till .htpasswd på servern (GET api/info visar katalogen).
+AuthType Basic
+AuthName "Crosby produktionsplan"
+AuthUserFile /DIN/ABSOLUTA/SOKVAG/projectplan/.htpasswd
+Require valid-user
+
 <Files "config.php">
   Require all denied
 </Files>
 <Files "schema.sql">
   Require all denied
 </Files>
-<FilesMatch "\.(example\.php|md)$">
+<FilesMatch "\.(htpasswd|example\.php|md|json)$">
   Require all denied
 </FilesMatch>
 
-# Sidan ska inte cachas av webbläsaren (annars syns inte uppdateringar förrän cachen rensas)
 <IfModule mod_headers.c>
   <Files "index.html">
     Header set Cache-Control "no-cache, must-revalidate"
