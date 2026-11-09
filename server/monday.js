@@ -102,7 +102,7 @@ export function mapMonday(boards, existing = {}) {
       // Fas: Pitch → Uppstart. Pågående → behåll fas som satts manuellt i planen, annars Produktion.
       // Fas: Pitch → Uppstart. Pågående → Produktion vid första synk eller när gruppen bytts i Monday; annars behålls manuellt satt fas.
       const sameGroup = prev.source?.monday && norm(prev.source.monday.group) === g;
-      const phase = g === "pitch" ? 0 : (sameGroup && prev.phase != null ? prev.phase : GROUPS[g]);
+      const phase = g === "pitch" ? 0 : (sameGroup && prev.phase != null && prev.phase !== 0 ? prev.phase : GROUPS[g]); // Pågående står aldrig kvar i Uppstart
       const color = prev.color ?? nextColor(existing.projects, out.projects);
       out.projects[id] = {
         name: it.name,

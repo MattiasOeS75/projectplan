@@ -205,7 +205,7 @@ function map_monday(array $boards, array $existing): array {
             $sheetUrl = preg_match('#https://docs\.google\.com/spreadsheets/d/[A-Za-z0-9_-]+[^"\s\\]*#', $blob, $mm) ? $mm[0] : '';
             // Fas: Pitch → Uppstart. Pågående → Produktion vid första synk eller när gruppen bytts i Monday; annars behålls manuellt satt fas.
             $sameGroup = isset($prev['source']['monday']) && norm($prev['source']['monday']['group'] ?? '') === $g;
-            $phase = $g === 'pitch' ? 0 : (($sameGroup && isset($prev['phase'])) ? $prev['phase'] : GROUPS[$g]);
+            $phase = $g === 'pitch' ? 0 : (($sameGroup && isset($prev['phase']) && (int)$prev['phase'] !== 0) ? $prev['phase'] : GROUPS[$g]); // Pågående står aldrig kvar i Uppstart
             $out['projects'][$id] = [
                 'name' => $it['name'],
                 'code' => $col($it, 'Projekt Nr.') ?: short_code($it['name']),
