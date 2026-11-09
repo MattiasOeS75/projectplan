@@ -231,6 +231,12 @@ export async function syncMonday(store, { boardIds } = {}) {
   for (const [id, a] of Object.entries(existing.absence)) if (a.source?.monday && !res.absence[id]) await store.del("absence", id);
   for (const [id, data] of Object.entries(res.absence)) await store.set("absence", id, data);
   const mapped = mapMonday(boards, existing);
+  // Items som försvunnit ur boardet (arkiverade/raderade i Monday) → arkivera i planen
+  const seen = new Set(boards.flatMap((b) => b.items.map((it) => `m${it.item_id}`)));
+  for (const [id, p] of Object.entries(existing.projects)) {
+    const bid = p.source?.monday?.boardId;
+    if (bid && ids.includes(String(bid)) && !seen.has(id) && !p.archived && !mapped.projects[id]) mapped.projects[id] = { ...p, archived: true };
+  }
   let n = 0;
   for (const col of ["projects", "people", "absence"]) {
     for (const [id, data] of Object.entries(mapped[col])) {

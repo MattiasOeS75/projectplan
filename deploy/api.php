@@ -293,6 +293,12 @@ function monday_sync(PDO $db, array $cfg, array $boardIds): array {
     foreach ($existing['absence'] as $id => $a) if (isset($a['source']['monday']) && !isset($res['absence'][$id])) $del->execute(['absence', $id]);
     foreach ($res['absence'] as $id => $data) doc_set($db, 'absence', $id, $data);
     $mapped = map_monday($boards, $existing);
+    // Items som försvunnit ur boardet (arkiverade/raderade i Monday) → arkivera i planen
+    $seen = []; foreach ($boards as $b) foreach ($b['items'] as $it) $seen['m' . $it['item_id']] = true;
+    foreach ($existing['projects'] as $id => $p) {
+        $bid = $p['source']['monday']['boardId'] ?? null;
+        if ($bid && in_array((string)$bid, $boardIds, true) && !isset($seen[$id]) && empty($p['archived']) && !isset($mapped['projects'][$id])) { $pp = $p; $pp['archived'] = true; $mapped['projects'][$id] = $pp; }
+    }
     $n = 0;
     foreach ($mapped['projects'] as $id => $data) {
         $prev = $existing['projects'][$id] ?? [];
