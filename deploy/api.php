@@ -377,7 +377,7 @@ function parse_timeline(array $rows, int $year): array {
 
 function parse_formats(array $rows): ?array {
     if (count($rows) < 2) return null;
-    $head = array_map('trim', $rows[0]); $drop = $head[0] === '' ? 1 : 0;
+    $head = array_map('trim', $rows[0]); while ($head && end($head) === '') array_pop($head); $drop = ($head[0] ?? '') === '' ? 1 : 0;
     $cols = array_slice($head, $drop);
     $li = -1; foreach ($cols as $i => $c) if (preg_match('/^(land|country|marknad)$/i', $c)) { $li = $i; break; }
     $groups = [];

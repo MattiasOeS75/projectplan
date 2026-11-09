@@ -81,6 +81,7 @@ export function parseFormats(rows) {
   if (rows.length < 2) return null;
   let head = rows[0].map((h) => h.trim());
   let drop = head[0] === "" ? 1 : 0; // första kolumnen är radnummer
+  while (head.length && head[head.length - 1] === "") head.pop(); // tomma kolumner i slutet
   const cols = head.slice(drop);
   const li = cols.findIndex((c) => /^(land|country|marknad)$/i.test(c));
   const groups = new Map();
