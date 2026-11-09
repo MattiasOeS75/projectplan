@@ -67,6 +67,13 @@ h2{font-family:var(--display);font-weight:600;font-size:18px;letter-spacing:.06e
 .card .meta .over{color:var(--bad);font-weight:500}
 .wait{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px;background:color-mix(in srgb,var(--warn) 14%,var(--surface));color:var(--warn);border-radius:4px;padding:3px 7px;align-self:flex-start}
 .empty{font-size:12px;color:var(--muted);border:1px dashed var(--line);border-radius:8px;padding:10px;text-align:center}
+/* kompakt pipeline: bara rubriker */
+.phases.compact{gap:8px}
+.phases.compact .card{padding:5px 9px;border-top-width:3px;gap:0}
+.phases.compact .card b{font-size:15px;line-height:1.15}
+.phases.compact .card .code{white-space:nowrap}
+.phases.compact .card .st,.phases.compact .card .wait,.phases.compact .card .meta{display:none}
+.phases.compact .card.due{box-shadow:inset 3px 0 0 var(--warn)}
 .addcard{border:1px dashed var(--line);background:transparent;border-radius:8px;padding:9px;color:var(--muted);font-weight:500}
 .addcard:hover{color:var(--accent);border-color:var(--accent)}
 
@@ -315,7 +322,7 @@ label.f textarea{min-height:70px;resize:vertical}
 
   <div id="v-plan" role="tabpanel" aria-labelledby="t-plan" style="display:flex;flex-direction:column;gap:22px">
   <section aria-labelledby="h-pipe">
-    <div class="sechead"><h2 id="h-pipe">Pipeline</h2><button class="btn primary" id="newProj" type="button">+ Ny produktion</button></div>
+    <div class="sechead"><h2 id="h-pipe">Pipeline</h2><div class="bar"><button class="btn ghost" id="pipeMode" type="button" aria-pressed="true">Kompakt</button><button class="btn primary" id="newProj" type="button">+ Ny produktion</button></div></div>
     <div class="pipe"><div class="phases" id="phases"></div></div>
   </section>
 
@@ -389,14 +396,18 @@ function projStats(p){
   const next=msOf(p).find(m=>m.d>=TODAY&&!(m.d===p.delivery&&isDel(m.t)));
   return{booked,next};
 }
+let pipeCompact=true;try{pipeCompact=localStorage.getItem("pipeCompact")!=="0"}catch(e){}
 function renderPipeline(){
   const ps=activeProjects();
+  $("#phases").classList.toggle("compact",pipeCompact);
+  const pm=$("#pipeMode");if(pm){pm.textContent=pipeCompact?"Detaljer":"Kompakt";pm.setAttribute("aria-pressed",String(pipeCompact))}
   $("#phases").innerHTML=PHASES.map((ph,i)=>{
     const list=ps.filter(p=>(p.phase??0)===i);
     return `<div class="phase"><h3><span>${esc(ph)}</span><span>${list.length||""}</span></h3>${list.map(p=>{
       const s=projStats(p);const left=p.delivery?workdaysUntil(p.delivery):null;
       const own=p.owner&&S.people[p.owner]?S.people[p.owner].name.split(" ")[0]:"";
-      return `<div role="button" tabindex="0" draggable="true" class="card" style="--c:${pc(p)}" data-proj="${esc(p.id)}" data-dragproj="${esc(p.id)}" data-tip="${esc(p.id)}">
+      const tip=[p.status,p.waiting?"Väntar: "+p.waiting:"",p.delivery?`Lev ${nice(p.delivery)}${left!=null&&left>=0?` · ${left} d`:""}`:"Lev TBC",own?"Ansv. "+own:""].filter(Boolean).join(" · ");
+      return `<div role="button" tabindex="0" draggable="true" class="card${left!=null&&left>=0&&left<=5?" due":""}" style="--c:${pc(p)}" data-proj="${esc(p.id)}" data-dragproj="${esc(p.id)}" data-tip="${esc(p.id)}" title="${esc(tip)}">
         <span class="nm"><b>${esc(p.name)}</b><span class="code">${esc(p.code||"")}</span></span>
         ${p.status?`<span class="st">${esc(p.status)}</span>`:""}
         ${p.waiting?`<span class="wait">Väntar: ${esc(p.waiting)}</span>`:""}
@@ -664,6 +675,7 @@ document.addEventListener("click",e=>{
   const card=t.closest("[data-proj]");if(card){projectEditor(card.dataset.proj);return}
   const np=t.closest("[data-newproj]");if(np){projectEditor(null,+np.dataset.newproj);return}
   if(t.closest("#newProj")){projectEditor(null,0);return}
+  if(t.closest("#pipeMode")){pipeCompact=!pipeCompact;try{localStorage.setItem("pipeCompact",pipeCompact?"1":"0")}catch(e){}renderPipeline();return}
   const md=t.closest("[data-msday]");if(md){dayPopover(md.dataset.msday,md);return}
   const cf=t.closest("[data-colorfor]");if(cf){e.stopPropagation();quickColor(cf.dataset.colorfor);return}
   const fc=t.closest("[data-focus]");if(fc){view.focus=view.focus===fc.dataset.focus?null:fc.dataset.focus;renderGrid();return}
