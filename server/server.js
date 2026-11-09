@@ -5,6 +5,7 @@ import express from "express";
 import path from "node:path";
 import { createStore, isCollection } from "./store.js";
 import { syncMonday, listBoards } from "./monday.js";
+import { syncSheets } from "./sheets.js";
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -35,8 +36,14 @@ app.get("/api/monday/boards", async (_req, res, next) => {
 app.post("/api/monday/sync", async (req, res, next) => {
   try {
     const boardIds = String(req.query.boards || "").split(",").filter(Boolean);
-    res.json(await syncMonday(store, { boardIds }));
+    const monday = await syncMonday(store, { boardIds });
+    const sheets = await syncSheets(store);
+    res.json({ ...monday, sheets });
   } catch (e) { next(e); }
+});
+// Tidsplaner (Google Sheets) → milstolpar, leveransdag, leveranslista
+app.post("/api/sheets/sync", async (_req, res, next) => {
+  try { res.json(await syncSheets(store)); } catch (e) { next(e); }
 });
 
 app.use(express.static(path.resolve("public")));

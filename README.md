@@ -47,6 +47,19 @@ tabellerna automatiskt vid start (`db/schema.sql`).
 
 Faser: `0 Uppstart · 1 Pre-prod · 2 Produktion · 3 Post / VFX · 4 Korr & leverans · 5 Löpande`
 
+## Tidsplaner (Google Sheets)
+
+Projekt med en Sheets-länk i fältet *Tidsplan* (eller en länk i någon Monday-kolumn) synkas med
+`POST /api/sheets/sync` (körs även efter varje Monday-synk, `npm run sheets` lokalt). Arket måste vara delat
+"alla med länken kan visa". Läses:
+
+- flik **Tidsplan** (`Vecka | DAG | DATUM | ett spår per kolumn`): celler som börjar med VERSALER blir milstolpar
+  (`FIRST VIEW`, `2nd VIEW`, `DELIVERY`, `UPPSTART` …), prefixade med spårets namn (Bild/Ljud) om flera spår.
+  `DELIVERY`/`LEVERANS` sätter projektets leveransdag (om den inte satts manuellt).
+- flik **Format**: tabellen blir leveranslistan i fliken *Leveranser*, grupperad på kolumnen *Land*.
+
+Manuella milstolpar behålls; de från arket är märkta `s:1` och ersätts vid varje synk.
+
 ## Monday
 
 1. `npm run boards` – lista boards och hitta id:n.

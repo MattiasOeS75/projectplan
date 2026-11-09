@@ -73,6 +73,8 @@ h2{font-family:var(--display);font-weight:600;font-size:18px;letter-spacing:.06e
 .phases.compact .card{padding:5px 9px;border-top-width:3px;gap:0}
 .phases.compact .card b{font-size:15px;line-height:1.15}
 .phases.compact .card .code{white-space:nowrap}
+.card .shc{color:var(--accent);text-decoration:none;font-weight:700;margin-right:5px;font-size:12px}
+.card .shc:hover{text-decoration:underline}
 .phases.compact .card .st,.phases.compact .card .wait,.phases.compact .card .meta{display:none}
 .phases.compact .card.due{box-shadow:inset 3px 0 0 var(--warn)}
 .addcard{border:1px dashed var(--line);background:transparent;border-radius:8px;padding:9px;color:var(--muted);font-weight:500}
@@ -427,7 +429,7 @@ function renderPipeline(){
       const s=projStats(p);const left=p.delivery?workdaysUntil(p.delivery):null;
       const own=p.owner&&S.people[p.owner]?S.people[p.owner].name.split(" ")[0]:"";
       return `<div role="button" tabindex="0" draggable="true" class="card${left!=null&&left>=0&&left<=5?" due":""}" style="--c:${pc(p)}" data-proj="${esc(p.id)}" data-dragproj="${esc(p.id)}" data-tip="${esc(p.id)}">
-        <span class="nm"><b>${esc(p.name)}</b><span class="code">${esc(p.code||"")}</span></span>
+        <span class="nm"><b>${esc(p.name)}</b><span class="code">${p.sheet&&/^https:\/\/(docs|drive)\.google\.com\//.test(p.sheet)?`<a class="shc" href="${esc(p.sheet)}" target="_blank" rel="noopener" title="Öppna tidsplanen" draggable="false">⇗</a>`:""}${esc(p.code||"")}</span></span>
         ${p.status?`<span class="st">${esc(p.status)}</span>`:""}
         ${p.waiting?`<span class="wait">Väntar: ${esc(p.waiting)}</span>`:""}
         <span class="meta">

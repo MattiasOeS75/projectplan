@@ -98,6 +98,7 @@ export function mapMonday(boards, existing = {}) {
       const producent = col(it, "Producent");
       const client = [col(it, "Kundregister"), col(it, "Kontakt")].filter(Boolean).join(" · ");
       const prev = existing.projects?.[id] || {};
+      const sheetUrl = Object.values(it.columns).map((c) => JSON.stringify(c.value || "") + " " + (c.text || "")).join(" ").match(/https:\/\/docs\.google\.com\/spreadsheets\/d\/[A-Za-z0-9_-]+[^"\s\\]*/)?.[0] || "";
       // Fas: Pitch → Uppstart. Pågående → behåll fas som satts manuellt i planen, annars Produktion.
       const phase = g === "pitch" ? 0 : (prev.phase != null && prev.source?.monday ? prev.phase : GROUPS[g]);
       const color = prev.color ?? nextColor(existing.projects, out.projects);
@@ -110,6 +111,7 @@ export function mapMonday(boards, existing = {}) {
         status,
         delivery: deadline,
         owner: peopleByName[norm(producent)] || prev.owner || "",
+        sheet: prev.sheet || sheetUrl,
         archived: false,
         source: { monday: { board: board.name, boardId: it.board_id, item: it.item_id, group: it.group_title, status, producent,
                             involverade: col(it, "Involverade"), period: period?.from ? `${period.from} – ${period.to}` : "", created: col(it, "Skapad") } },

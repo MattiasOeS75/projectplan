@@ -31,10 +31,14 @@ try {
         if ($sub === 'boards' && $method === 'GET') out(monday_boards($cfg));
         if ($sub === 'sync' && $method === 'POST') {
             $ids = array_filter(array_map('trim', explode(',', $_GET['boards'] ?? ($cfg['MONDAY_BOARDS'] ?? ''))));
-            out(monday_sync($db, $cfg, array_values($ids)));
+            $r = monday_sync($db, $cfg, array_values($ids));
+            $r['sheets'] = sheets_sync($db);
+            out($r);
         }
         fail(404, 'okänd monday-route');
     }
+    // ---- Tidsplaner i Google Sheets → milstolpar, leveransdag, leveranslista ----
+    if (($parts[0] ?? '') === 'sheets' && ($parts[1] ?? '') === 'sync' && $method === 'POST') out(sheets_sync($db));
 
     // ---- Dokument ----
     $col = $parts[0] ?? '';
@@ -196,6 +200,9 @@ function map_monday(array $boards, array $existing): array {
             $period = $raw($it, 'Projektperiod');
             $deadline = to_iso(is_array($raw($it, 'Deadline')) ? ($raw($it, 'Deadline')['date'] ?? '') : '') ?: to_iso($col($it, 'Deadline')) ?: to_iso(is_array($period) ? ($period['to'] ?? '') : '');
             $producent = $col($it, 'Producent');
+            $blob = '';
+            foreach ($it['columns'] as $c) $blob .= json_encode($c['value'] ?? '', JSON_UNESCAPED_SLASHES) . ' ' . ($c['text'] ?? '') . ' ';
+            $sheetUrl = preg_match('#https://docs\.google\.com/spreadsheets/d/[A-Za-z0-9_-]+[^"\s\\]*#', $blob, $mm) ? $mm[0] : '';
             $phase = $g === 'pitch' ? 0 : ((isset($prev['phase']) && isset($prev['source']['monday'])) ? $prev['phase'] : GROUPS[$g]);
             $out['projects'][$id] = [
                 'name' => $it['name'],
@@ -206,6 +213,7 @@ function map_monday(array $boards, array $existing): array {
                 'status' => $status,
                 'delivery' => $deadline,
                 'owner' => $peopleByName[norm($producent)] ?? ($prev['owner'] ?? ''),
+                'sheet' => $prev['sheet'] ?? $sheetUrl,
                 'archived' => false,
                 'source' => ['monday' => ['board' => $board['name'], 'boardId' => $it['board_id'], 'item' => $it['item_id'], 'group' => $it['group_title'],
                     'status' => $status, 'producent' => $producent, 'involverade' => $col($it, 'Involverade'),
@@ -293,6 +301,116 @@ function monday_sync(PDO $db, array $cfg, array $boardIds): array {
     }
     return ['boards' => array_map(fn($b) => ['name' => $b['board']['name'], 'items' => count($b['items'])], $boards),
             'projects' => $n, 'people' => count($res['people']), 'absence' => count($res['absence'])];
+}
+
+/* ================= Google Sheets (tidsplaner) ================= */
+const MONTHS = ['jan'=>1,'feb'=>2,'mar'=>3,'apr'=>4,'maj'=>5,'may'=>5,'jun'=>6,'jul'=>7,'aug'=>8,'sep'=>9,'okt'=>10,'oct'=>10,'nov'=>11,'dec'=>12];
+
+function sheet_id($url): string { return preg_match('#/spreadsheets/d/([A-Za-z0-9_-]+)#', (string)$url, $m) ? $m[1] : ''; }
+
+function sheet_fetch_tab(string $id, string $tab): array {
+    $u = "https://docs.google.com/spreadsheets/d/$id/gviz/tq?tqx=out:csv&sheet=" . rawurlencode($tab);
+    $ch = curl_init($u);
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_TIMEOUT => 30, CURLOPT_USERAGENT => 'produktionsplan/1.0']);
+    $t = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    if ($t === false || $code >= 400) throw new RuntimeException("Sheets $tab: HTTP $code (är arket delat 'alla med länken'?)");
+    if (preg_match('/<html/i', substr($t, 0, 200))) throw new RuntimeException("Sheets $tab: fick inloggningssida – dela arket 'alla med länken'");
+    return parse_csv($t);
+}
+
+function parse_csv(string $text): array {
+    $rows = []; $row = []; $cell = ''; $q = false; $n = strlen($text);
+    for ($i = 0; $i < $n; $i++) {
+        $ch = $text[$i];
+        if ($q) { if ($ch === '"') { if (($text[$i + 1] ?? '') === '"') { $cell .= '"'; $i++; } else $q = false; } else $cell .= $ch; }
+        elseif ($ch === '"') $q = true;
+        elseif ($ch === ',') { $row[] = $cell; $cell = ''; }
+        elseif ($ch === "\n" || $ch === "\r") { if ($ch === "\r" && ($text[$i + 1] ?? '') === "\n") $i++; $row[] = $cell; $rows[] = $row; $row = []; $cell = ''; }
+        else $cell .= $ch;
+    }
+    if ($cell !== '' || $row) { $row[] = $cell; $rows[] = $row; }
+    return array_values(array_filter($rows, fn($r) => count(array_filter($r, fn($c) => trim($c) !== '')) > 0));
+}
+
+/** Datumparser med löpande år: "12-okt." → 2026-10-12; nytt år när månaden backar. */
+function make_date_parser(int $year): Closure {
+    $last = 0;
+    return function ($s) use (&$year, &$last): string {
+        $s = mb_strtolower(trim((string)$s));
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $s, $m)) return $m[0];
+        if (!preg_match('/^(\d{1,2})[-\s.\/]*([a-zåäö]{3})/u', $s, $m)) return '';
+        $mon = MONTHS[$m[2]] ?? 0; if (!$mon) return '';
+        if ($last && $mon < $last) $year++;
+        $last = $mon;
+        return sprintf('%04d-%02d-%02d', $year, $mon, (int)$m[1]);
+    };
+}
+function is_milestone(string $t): bool {
+    $w = preg_split('/\s+/u', trim($t)); $first = $w[0] ?? ''; $second = $w[1] ?? '';
+    return (bool)preg_match('/^[A-ZÅÄÖ0-9][A-ZÅÄÖ0-9\/\-]{2,}$/u', $first) || (preg_match('/^(2nd|1st|3rd)$/i', $first) && preg_match('/^[A-ZÅÄÖ]/u', $second));
+}
+function is_delivery(string $t): bool { return (bool)preg_match('/^(leverans|delivery|final delivery|slutleverans)/iu', trim($t)); }
+function track_name($h): string { $s = trim((string)$h); return trim(preg_match('/(?:[-–·]\s*)([^-–·]+)$/u', $s, $m) ? $m[1] : $s); }
+
+function parse_timeline(array $rows, int $year): array {
+    if (!$rows) return ['milestones' => [], 'delivery' => ''];
+    $head = array_map('trim', $rows[0]);
+    $di = -1; foreach ($head as $i => $h) if (preg_match('/^datum$/i', $h)) { $di = $i; break; }
+    if ($di < 0) return ['milestones' => [], 'delivery' => ''];
+    $tracks = []; foreach ($head as $i => $h) if ($i > $di && $h !== '') $tracks[] = ['i' => $i, 'name' => track_name($h)];
+    $multi = count($tracks) > 1; $toDate = make_date_parser($year);
+    $ms = []; $delivery = '';
+    foreach (array_slice($rows, 1) as $r) {
+        $d = $toDate($r[$di] ?? ''); if (!$d) continue;
+        foreach ($tracks as $t) {
+            $raw = trim(preg_replace('/\s+/u', ' ', $r[$t['i']] ?? '')); if ($raw === '') continue;
+            foreach (preg_split('/\s*·\s*/u', $raw) as $part) {
+                if (!is_milestone($part)) continue;
+                $text = mb_strlen($part) > 60 ? mb_substr($part, 0, 57) . '…' : $part;
+                $ms[] = ['d' => $d, 't' => $multi ? $t['name'] . ': ' . $text : $text, 's' => 1];
+                if (is_delivery($part) && $d > $delivery) $delivery = $d;
+            }
+        }
+    }
+    return ['milestones' => $ms, 'delivery' => $delivery];
+}
+
+function parse_formats(array $rows): ?array {
+    if (count($rows) < 2) return null;
+    $head = array_map('trim', $rows[0]); $drop = $head[0] === '' ? 1 : 0;
+    $cols = array_slice($head, $drop);
+    $li = -1; foreach ($cols as $i => $c) if (preg_match('/^(land|country|marknad)$/i', $c)) { $li = $i; break; }
+    $groups = [];
+    foreach (array_slice($rows, 1) as $r) {
+        $c = array_map(fn($x) => trim((string)$x), array_slice(array_pad($r, $drop + count($cols), ''), $drop, count($cols)));
+        if (($c[0] ?? '') === '' && ($c[1] ?? '') === '') continue;
+        if (count(array_filter($c)) < 2) continue;
+        $key = $li >= 0 ? ($c[$li] ?? '') : '';
+        $groups[$key] ??= ['t' => $key, 'rows' => []];
+        $groups[$key]['rows'][] = ['c' => $c];
+    }
+    return $groups ? ['cols' => $cols, 'groups' => array_values($groups)] : null;
+}
+
+function sheets_sync(PDO $db): array {
+    $projects = doc_list($db, 'projects');
+    $res = ['synced' => 0, 'skipped' => 0, 'errors' => []];
+    foreach ($projects as $id => $p) {
+        $sid = sheet_id($p['sheet'] ?? ''); if (!$sid || !empty($p['archived'])) { $res['skipped']++; continue; }
+        try {
+            $year = preg_match('/^(\d{4})/', (string)($p['source']['monday']['created'] ?? $p['delivery'] ?? ''), $m) ? (int)$m[1] : (int)date('Y');
+            $tl = parse_timeline(sheet_fetch_tab($sid, 'Tidsplan'), $year);
+            $deliveries = $p['deliveries'] ?? null;
+            try { $deliveries = parse_formats(sheet_fetch_tab($sid, 'Format')) ?? $deliveries; } catch (Throwable $e) { /* ingen Format-flik */ }
+            $manual = array_values(array_filter($p['milestones'] ?? [], fn($m) => empty($m['s'])));
+            $next = $p; $next['milestones'] = array_merge($manual, $tl['milestones']); if ($deliveries) $next['deliveries'] = $deliveries;
+            if ($tl['delivery'] && (empty($p['delivery']) || !empty($p['deliveryFromSheet']))) { $next['delivery'] = $tl['delivery']; $next['deliveryFromSheet'] = true; }
+            $next['sheetSynced'] = date('Y-m-d\TH:i');
+            doc_set($db, 'projects', $id, $next);
+            $res['synced']++;
+        } catch (Throwable $e) { $res['errors'][] = ['id' => $id, 'name' => $p['name'] ?? '', 'error' => $e->getMessage()]; }
+    }
+    return $res;
 }
 
 if (!defined('PLAN_NO_RUN')) main();
