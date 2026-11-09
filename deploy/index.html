@@ -77,6 +77,13 @@ h2{font-family:var(--display);font-weight:600;font-size:18px;letter-spacing:.06e
 .card .shc:hover{text-decoration:underline}
 .phases.compact .card .st,.phases.compact .card .wait,.phases.compact .card .meta{display:none}
 .phases.compact .card.due{box-shadow:inset 3px 0 0 var(--warn)}
+/* arkiverade projekt */
+.arch{margin-top:8px}
+.arch summary{cursor:pointer;font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);list-style:none;display:inline-flex;align-items:center;gap:6px}
+.arch summary::before{content:"▸"} .arch[open] summary::before{content:"▾"}
+.archlist{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.archlist .chip{opacity:.8} .archlist .chip button{border:0;background:transparent;color:var(--accent);font-weight:600;padding:0 0 0 6px;font-size:12px}
+.archlist .chip button:hover{text-decoration:underline}
 .addcard{border:1px dashed var(--line);background:transparent;border-radius:8px;padding:9px;color:var(--muted);font-weight:500}
 .addcard:hover{color:var(--accent);border-color:var(--accent)}
 
@@ -342,6 +349,7 @@ label.f textarea{min-height:70px;resize:vertical}
   <section aria-labelledby="h-pipe">
     <div class="sechead"><h2 id="h-pipe">Pipeline</h2><div class="bar"><button class="btn ghost" id="pipeMode" type="button" aria-pressed="true">Kompakt</button><button class="btn primary" id="newProj" type="button">+ Ny produktion</button></div></div>
     <div class="pipe"><div class="phases" id="phases"></div></div>
+    <details class="arch" id="arch" hidden><summary></summary><div class="archlist" id="archlist"></div></details>
   </section>
 
   <section aria-labelledby="h-grid">
@@ -439,6 +447,10 @@ function renderPipeline(){
           ${p.sheet&&/^https:\/\/(docs|drive)\.google\.com\//.test(p.sheet)?`<a class="shl" href="${esc(p.sheet)}" target="_blank" rel="noopener">Tidsplan ↗</a>`:""}
         </span></div>`}).join("")||`<div class="empty">Inga produktioner</div>`}
       ${i===0?`<button type="button" class="addcard" data-newproj="0">+ Lägg till</button>`:""}</div>`}).join("");
+  const arch=Object.entries(S.projects).filter(([,p])=>p.archived).map(([id,p])=>({...p,id})).sort((a,b)=>a.name.localeCompare(b.name,"sv"));
+  const box=$("#arch");box.hidden=!arch.length;
+  if(arch.length){box.querySelector("summary").textContent=`Arkiverade (${arch.length})`;
+    $("#archlist").innerHTML=arch.map(p=>`<span class="chip" style="--c:${pc(p)}"><i></i>${esc(p.name)}<button type="button" data-unarch="${esc(p.id)}" title="Lägg tillbaka i pipelinen">Återaktivera</button></span>`).join("")}
 }
 
 /* ---------- Frånvaro, beläggning, risk ---------- */
@@ -724,6 +736,7 @@ document.addEventListener("click",e=>{
   const card=t.closest("[data-proj]");if(card){projectEditor(card.dataset.proj);return}
   const np=t.closest("[data-newproj]");if(np){projectEditor(null,+np.dataset.newproj);return}
   if(t.closest("#newProj")){projectEditor(null,0);return}
+  const ua=t.closest("[data-unarch]");if(ua){const p=S.projects[ua.dataset.unarch];if(p){put("projects",ua.dataset.unarch,{...p,archived:false});toast(`${p.name} är tillbaka i pipelinen.`)}return}
   if(t.closest("#pipeMode")){pipeCompact=!pipeCompact;try{localStorage.setItem("pipeCompact",pipeCompact?"1":"0")}catch(e){}renderPipeline();return}
   const md=t.closest("[data-msday]");if(md){dayPopover(md.dataset.msday,md);return}
   const cf=t.closest("[data-colorfor]");if(cf){e.stopPropagation();quickColor(cf.dataset.colorfor);return}
