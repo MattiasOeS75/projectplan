@@ -100,7 +100,9 @@ export function mapMonday(boards, existing = {}) {
       const prev = existing.projects?.[id] || {};
       const sheetUrl = Object.values(it.columns).map((c) => JSON.stringify(c.value || "") + " " + (c.text || "")).join(" ").match(/https:\/\/docs\.google\.com\/spreadsheets\/d\/[A-Za-z0-9_-]+[^"\s\\]*/)?.[0] || "";
       // Fas: Pitch → Uppstart. Pågående → behåll fas som satts manuellt i planen, annars Produktion.
-      const phase = g === "pitch" ? 0 : (prev.phase != null && prev.source?.monday ? prev.phase : GROUPS[g]);
+      // Fas: Pitch → Uppstart. Pågående → Produktion vid första synk eller när gruppen bytts i Monday; annars behålls manuellt satt fas.
+      const sameGroup = prev.source?.monday && norm(prev.source.monday.group) === g;
+      const phase = g === "pitch" ? 0 : (sameGroup && prev.phase != null ? prev.phase : GROUPS[g]);
       const color = prev.color ?? nextColor(existing.projects, out.projects);
       out.projects[id] = {
         name: it.name,
