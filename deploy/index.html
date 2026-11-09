@@ -561,6 +561,8 @@ function setTab(t){tab=t;try{localStorage.setItem("cp_tab",t)}catch(e){}
   document.querySelectorAll(".tabs [data-tab]").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===t));
   $("#v-plan").style.display=t==="plan"?"flex":"none";$("#v-lev").hidden=t!=="lev";
   if(t==="plan")renderGrid();else renderDeliveries()}
+const levOpen=new Set(); // vilka leveranslistor användaren fällt ut (stängda som standard)
+document.addEventListener("toggle",e=>{const d=e.target;if(d.classList?.contains("lv")){const id=d.id.replace(/^lv-/,"");d.open?levOpen.add(id):levOpen.delete(id)}},true);
 function renderDeliveries(){
   const ps=activeProjects(), withL=ps.filter(p=>levRows(p.deliveries)), without=ps.filter(p=>!levRows(p.deliveries));
   $("#levN").textContent=withL.length?String(withL.length):"";
@@ -576,7 +578,7 @@ function renderDeliveries(){
     const cls=cols.map(c=>LONG.test(c)?"long":/^antal$/i.test(c)?"num":MONO.test(c)?"mono":"");
     const body=groups.map(g=>`${g.t?`<tr class="grp"><td colspan="${cols.length}">${hl(g.t,q)}<span>${g.rows.length} rader</span></td></tr>`:""}${g.rows.map(r=>`<tr>${cols.map((_,i)=>`<td class="${cls[i]}">${hl(r.c?.[i]??"",q)}</td>`).join("")}</tr>`).join("")}`).join("");
     const n=levCount(d);
-    return `<details class="lv" id="lv-${esc(p.id)}" style="--c:${pc(p)}" open>
+    return `<details class="lv" id="lv-${esc(p.id)}" style="--c:${pc(p)}"${q||levOpen.has(p.id)?" open":""}>
       <summary><b>${esc(p.name)}</b><span class="lm">
         <span class="lev">${p.delivery?`Lev ${DAYN[parse(p.delivery).getDay()]} ${nice(p.delivery)}${left!=null&&left>=0?` · ${left} arbetsdagar kvar`:""}`:"Lev TBC"}</span>
         <span>${n} ${n===1?"leverans":"leveranser"}${q&&nRows!==levRows(d)?` · ${nRows} träffar`:""}</span>
