@@ -415,8 +415,9 @@ function sheets_sync(PDO $db): array {
             foreach (['Format', 'Leverans', 'Leveranser', 'Leveranslista', 'Deliveries', 'Delivery', 'Formats'] as $tab) {
                 try { $d = parse_formats(sheet_fetch_tab($sid, $tab)); if ($d) { $deliveries = $d; break; } } catch (Throwable $e) { /* fliken finns inte */ }
             }
+            // Bara leveransdag + formatlista till planen – inga milstolpar från arket (manuella behålls)
             $manual = array_values(array_filter($p['milestones'] ?? [], fn($m) => empty($m['s'])));
-            $next = $p; $next['milestones'] = array_merge($manual, $tl['milestones']); if ($deliveries) $next['deliveries'] = $deliveries;
+            $next = $p; $next['milestones'] = $manual; if ($deliveries) $next['deliveries'] = $deliveries;
             if ($tl['delivery'] && (empty($p['delivery']) || !empty($p['deliveryFromSheet']))) { $next['delivery'] = $tl['delivery']; $next['deliveryFromSheet'] = true; }
             $next['sheetSynced'] = date('Y-m-d\TH:i');
             doc_set($db, 'projects', $id, $next);

@@ -121,8 +121,9 @@ export async function syncSheets(store, { year } = {}) {
       const tl = parseTimeline(await fetchTab(sid, "Tidsplan"), { year: year || yearHint(p) });
       let deliveries = p.deliveries;
       for (const tab of DELIVERY_TABS) { try { const d = parseFormats(await fetchTab(sid, tab)); if (d) { deliveries = d; break; } } catch { /* fliken finns inte */ } }
+      // Bara leveransdag + formatlista till planen – inga milstolpar från arket (manuella behålls)
       const manual = (p.milestones || []).filter((m) => !m.s);
-      const next = { ...p, milestones: [...manual, ...tl.milestones], deliveries };
+      const next = { ...p, milestones: manual, deliveries };
       if (tl.delivery && (!p.delivery || p.deliveryFromSheet)) { next.delivery = tl.delivery; next.deliveryFromSheet = true; }
       next.sheetSynced = new Date().toISOString().slice(0, 16);
       await store.set("projects", id, next);
