@@ -29,6 +29,7 @@ jobs:
           server-dir: ./
           state-name: .ftp-deploy-state.json  # FTP-kontots rot = webbmappen projectplan/
           exclude: |
+            .htaccess
             config.php
             README.md
             config.example.php
