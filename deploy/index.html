@@ -851,7 +851,7 @@ grid.addEventListener("drop",e=>{const c=e.target.closest(".g-c");if(!c||!drag||
 // Dra projektkort mellan faserna i pipelinen
 const phasesEl=$("#phases");
 const clearPhdrop=()=>phasesEl.querySelectorAll(".phase.drop").forEach(x=>x.classList.remove("drop"));
-phasesEl.addEventListener("dragover",e=>{if(!drag||drag.kind!=="proj")return;const ph=e.target.closest(".phase");if(!ph)return;e.preventDefault();e.dataTransfer.dropEffect="move";
+phasesEl.addEventListener("dragover",e=>{if(!drag||drag.kind!=="proj")return;const ph=e.target.closest(".phase");if(!ph)return;e.preventDefault();e.dataTransfer.dropEffect="copy";
   phasesEl.querySelectorAll(".phase.drop").forEach(x=>x!==ph&&x.classList.remove("drop"));ph.classList.add("drop")});
 phasesEl.addEventListener("dragleave",e=>{const ph=e.target.closest(".phase");if(ph&&!ph.contains(e.relatedTarget))ph.classList.remove("drop")});
 phasesEl.addEventListener("drop",e=>{if(!drag||drag.kind!=="proj")return;const ph=e.target.closest(".phase");if(!ph)return;e.preventDefault();
