@@ -699,15 +699,19 @@ function tipHTML(id,ms){const p=S.projects[id];if(!p)return"";const st=projStats
     <div class="hint2">${ms?"Klicka för dagens alla händelser":"Klicka för att ändra · dra till griden för att blocka"}</div>`}
 {let t=0,cur=null;const box=$("#tip");
  const hide=()=>{clearTimeout(t);cur=null;box.hidden=true};
+ const over=el=>!!el&&el.isConnected&&el.matches(":hover");
+ const show=c=>{const p=S.projects[c.dataset.tip];if(!p||drag||!over(c))return;box.style.setProperty("--c",pc(p));box.innerHTML=tipHTML(c.dataset.tip,c.dataset.tipd?{d:c.dataset.tipd,t:c.dataset.tipt||"",del:!!c.dataset.tipdel,risk:c.dataset.tiprisk||""}:null);box.hidden=false;
+   const r=c.getBoundingClientRect(),w=box.offsetWidth,h=box.offsetHeight;let x=r.right+8;if(x+w>innerWidth-12)x=r.left-w-8;if(x<12)x=Math.max(12,Math.min(r.left,innerWidth-w-12));
+   let y=r.top;if(x>=r.left&&x<r.right)y=r.bottom+8;if(y+h>innerHeight-12)y=Math.max(12,innerHeight-h-12);box.style.left=x+"px";box.style.top=y+"px"};
  document.addEventListener("pointerover",e=>{if(e.pointerType&&e.pointerType!=="mouse")return;const c=e.target.closest?.("[data-tip]");if(!c||c===cur)return;
-   cur=c;clearTimeout(t);t=setTimeout(()=>{const p=S.projects[c.dataset.tip];if(!p||drag)return;box.style.setProperty("--c",pc(p));box.innerHTML=tipHTML(c.dataset.tip,c.dataset.tipd?{d:c.dataset.tipd,t:c.dataset.tipt||"",del:!!c.dataset.tipdel,risk:c.dataset.tiprisk||""}:null);box.hidden=false;
-     const r=c.getBoundingClientRect(),w=box.offsetWidth,h=box.offsetHeight;let x=r.right+8;if(x+w>innerWidth-12)x=r.left-w-8;if(x<12)x=Math.max(12,Math.min(r.left,innerWidth-w-12));
-     let y=r.top;if(x>=r.left&&x<r.right)y=r.bottom+8;if(y+h>innerHeight-12)y=Math.max(12,innerHeight-h-12);box.style.left=x+"px";box.style.top=y+"px"},280)});
+   cur=c;box.hidden=true;clearTimeout(t);t=setTimeout(()=>show(c),280)});
+ // Släck så fort pekaren inte längre är över kortet – oavsett vilka pointer-händelser som kom
+ const check=()=>{if(cur&&!over(cur))hide()};
+ document.addEventListener("pointermove",check,{passive:true});
  document.addEventListener("pointerout",e=>{const c=e.target.closest?.("[data-tip]");if(c&&!c.contains(e.relatedTarget))hide()});
- document.addEventListener("dragstart",hide);document.addEventListener("pointerdown",hide);addEventListener("scroll",hide,{passive:true});
- // Säkerhetsnät: kortet kan bytas ut vid omritning (synk var 15 s) utan att pointerout skickas
- document.addEventListener("pointermove",e=>{if(!cur)return;if(!cur.isConnected||!cur.contains(e.target))hide()},{passive:true});
- document.addEventListener("pointerleave",hide);window.tipHide=hide}
+ document.addEventListener("pointerleave",hide);document.addEventListener("visibilitychange",hide);
+ setInterval(check,500);
+ document.addEventListener("dragstart",hide);document.addEventListener("pointerdown",hide);addEventListener("scroll",hide,{passive:true});window.tipHide=hide}
 
 /* ---------- Events ---------- */
 document.addEventListener("click",e=>{
