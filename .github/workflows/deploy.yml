@@ -1,0 +1,34 @@
+# Laddar upp deploy/ till webbhotellet via FTP vid varje push till main (eller manuellt via "Run workflow").
+# Secrets i repot (Settings → Secrets and variables → Actions): FTP_SERVER, FTP_USERNAME, FTP_PASSWORD
+name: Deploy till cby.se/projectplan
+
+on:
+  push:
+    branches: [main]
+    paths: ["deploy/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: ftp-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: FTP-synk av deploy/
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: deploy/
+          server-dir: projectplan/
+          state-name: .ftp-deploy-state.json
+          exclude: |
+            config.php
+            README.md
+            config.example.php
