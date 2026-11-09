@@ -26,8 +26,8 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           local-dir: deploy/
-          server-dir: projectplan/
-          state-name: .ftp-deploy-state.json
+          server-dir: ./
+          state-name: .ftp-deploy-state.json  # FTP-kontots rot = webbmappen projectplan/
           exclude: |
             config.php
             README.md
