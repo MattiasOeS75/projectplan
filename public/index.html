@@ -398,6 +398,7 @@ function projStats(p){
 }
 let pipeCompact=true;try{pipeCompact=localStorage.getItem("pipeCompact")!=="0"}catch(e){}
 function renderPipeline(){
+  window.tipHide?.();
   const ps=activeProjects();
   $("#phases").classList.toggle("compact",pipeCompact);
   const pm=$("#pipeMode");if(pm){pm.textContent=pipeCompact?"Detaljer":"Kompakt";pm.setAttribute("aria-pressed",String(pipeCompact))}
@@ -406,8 +407,7 @@ function renderPipeline(){
     return `<div class="phase"><h3><span>${esc(ph)}</span><span>${list.length||""}</span></h3>${list.map(p=>{
       const s=projStats(p);const left=p.delivery?workdaysUntil(p.delivery):null;
       const own=p.owner&&S.people[p.owner]?S.people[p.owner].name.split(" ")[0]:"";
-      const tip=[p.status,p.waiting?"Väntar: "+p.waiting:"",p.delivery?`Lev ${nice(p.delivery)}${left!=null&&left>=0?` · ${left} d`:""}`:"Lev TBC",own?"Ansv. "+own:""].filter(Boolean).join(" · ");
-      return `<div role="button" tabindex="0" draggable="true" class="card${left!=null&&left>=0&&left<=5?" due":""}" style="--c:${pc(p)}" data-proj="${esc(p.id)}" data-dragproj="${esc(p.id)}" data-tip="${esc(p.id)}" title="${esc(tip)}">
+      return `<div role="button" tabindex="0" draggable="true" class="card${left!=null&&left>=0&&left<=5?" due":""}" style="--c:${pc(p)}" data-proj="${esc(p.id)}" data-dragproj="${esc(p.id)}" data-tip="${esc(p.id)}">
         <span class="nm"><b>${esc(p.name)}</b><span class="code">${esc(p.code||"")}</span></span>
         ${p.status?`<span class="st">${esc(p.status)}</span>`:""}
         ${p.waiting?`<span class="wait">Väntar: ${esc(p.waiting)}</span>`:""}
@@ -665,7 +665,10 @@ function tipHTML(id,ms){const p=S.projects[id];if(!p)return"";const st=projStats
      const r=c.getBoundingClientRect(),w=box.offsetWidth,h=box.offsetHeight;let x=r.right+8;if(x+w>innerWidth-12)x=r.left-w-8;if(x<12)x=Math.max(12,Math.min(r.left,innerWidth-w-12));
      let y=r.top;if(x>=r.left&&x<r.right)y=r.bottom+8;if(y+h>innerHeight-12)y=Math.max(12,innerHeight-h-12);box.style.left=x+"px";box.style.top=y+"px"},280)});
  document.addEventListener("pointerout",e=>{const c=e.target.closest?.("[data-tip]");if(c&&!c.contains(e.relatedTarget))hide()});
- document.addEventListener("dragstart",hide);document.addEventListener("pointerdown",hide);addEventListener("scroll",hide,{passive:true})}
+ document.addEventListener("dragstart",hide);document.addEventListener("pointerdown",hide);addEventListener("scroll",hide,{passive:true});
+ // Säkerhetsnät: kortet kan bytas ut vid omritning (synk var 15 s) utan att pointerout skickas
+ document.addEventListener("pointermove",e=>{if(!cur)return;if(!cur.isConnected||!cur.contains(e.target))hide()},{passive:true});
+ document.addEventListener("pointerleave",hide);window.tipHide=hide}
 
 /* ---------- Events ---------- */
 document.addEventListener("click",e=>{
