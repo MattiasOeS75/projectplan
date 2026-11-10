@@ -280,13 +280,50 @@ function map_resources(array $users, ?array $frilans, ?array $franvaro, array $e
     return $out;
 }
 
+/** Underobjekt på projektboardet → block i gridden: ett per arbetsdag (mån–fre) i Period, på Ansvarig, med Est. tid som timmar/dag. */
+function map_planning(array $boards, array $people, array $projects): array {
+    $byName = []; foreach ($people as $pid => $p) $byName[norm($p['name'] ?? '')] = $pid;
+    $from = (date('Y') - 1) . '-01-01'; // ta inte med urgammal planering
+    $out = [];
+    foreach ($boards as ['items' => $items]) {
+        foreach ($items as $it) {
+            $projId = 'm' . $it['item_id'];
+            if (empty($projects[$projId]) || !empty($projects[$projId]['archived'])) continue;
+            foreach ($it['subitems'] ?? [] as $si) {
+                $who = ''; $period = null; $est = null;
+                foreach ($si['columns'] as $title => $c) {
+                    $t = norm($title);
+                    if ($t === 'ansvarig' || $t === 'person' || $t === 'owner') $who = trim((string)($c['text'] ?? ''));
+                    elseif ($t === 'period' || $t === 'timeline' || $t === 'tidslinje') $period = is_array($c['value'] ?? null) ? $c['value'] : null;
+                    elseif (str_starts_with($t, 'est') || $t === 'timmar' || $t === 'hours') $est = (float)str_replace(',', '.', (string)($c['text'] ?? ''));
+                }
+                if ($who === '' || !$period || empty($period['from']) || empty($period['to'])) continue;
+                // Ansvarig kan vara flera namn, kommaseparerade
+                foreach (array_map('trim', explode(',', $who)) as $name) {
+                    $pid = $byName[norm($name)] ?? null; if (!$pid) continue;
+                    $d = new DateTime($period['from']); $end = new DateTime($period['to']);
+                    for (; $d <= $end; $d->modify('+1 day')) {
+                        if ((int)$d->format('N') >= 6) continue;               // helg
+                        $date = $d->format('Y-m-d'); if ($date < $from) continue;
+                        $b = ['personId' => $pid, 'date' => $date, 'part' => 'full', 'projectId' => $projId, 'note' => $si['name'], 'src' => 'monday',
+                              'source' => ['monday' => ['item' => $it['item_id'], 'subitem' => $si['id']]]];
+                        if ($est > 0) $b['hours'] = min(round($est * 2) / 2, 12);
+                        $out['s' . $si['id'] . '-' . $pid . '-' . str_replace('-', '', $date)] = $b;
+                    }
+                }
+            }
+        }
+    }
+    return $out;
+}
+
 function monday_sync(PDO $db, array $cfg, array $boardIds): array {
     if (!$boardIds) throw new RuntimeException('Inga boards angivna (MONDAY_BOARDS i config.php eller ?boards=1,2)');
     $boards = [];
     $ins = $db->prepare('INSERT INTO monday_items (board_id,item_id,name,group_id,columns) VALUES (?,?,?,?,?::jsonb)
         ON CONFLICT (board_id,item_id) DO UPDATE SET name=EXCLUDED.name, group_id=EXCLUDED.group_id, columns=EXCLUDED.columns, synced_at=now()');
     foreach ($boardIds as $bid) {
-        $b = monday_board_items($cfg, $bid);
+        $b = monday_board_items($cfg, $bid, true);   // med underobjekt (planeringen)
         foreach ($b['items'] as $it) $ins->execute([$it['board_id'], $it['item_id'], $it['name'], $it['group_id'], json_encode($it['columns'], JSON_UNESCAPED_UNICODE)]);
         $boards[] = $b;
     }
@@ -320,8 +357,13 @@ function monday_sync(PDO $db, array $cfg, array $boardIds): array {
         doc_set($db, 'projects', $id, $merged);
         $n++;
     }
+    // Planering: underobjekt (Ansvarig + Period + Est. tid) → block per arbetsdag. Ersätter tidigare Monday-block, manuella rörs inte.
+    $blocks = map_planning($boards, $existing['people'], $mapped['projects'] + $existing['projects']);
+    $oldBlocks = doc_list($db, 'blocks'); $bn = 0;
+    foreach ($oldBlocks as $id => $b) if (($b['src'] ?? '') === 'monday' && !isset($blocks[$id])) $del->execute(['blocks', $id]);
+    foreach ($blocks as $id => $b) { if (($oldBlocks[$id] ?? null) != $b) { doc_set($db, 'blocks', $id, $b); $bn++; } }
     return ['boards' => array_map(fn($b) => ['name' => $b['board']['name'], 'items' => count($b['items'])], $boards),
-            'projects' => $n, 'people' => count($res['people']), 'absence' => count($res['absence'])];
+            'projects' => $n, 'people' => count($res['people']), 'absence' => count($res['absence']), 'blocks' => count($blocks), 'blocks_changed' => $bn];
 }
 
 /* ================= Google Sheets (tidsplaner) ================= */

@@ -97,4 +97,12 @@ Lokala fält (färg, väntar på, budget, leveranser) skrivs aldrig över av syn
 | **Frilansare** (1083892887) – *av som standard*; sätt `MONDAY_FRILANS` för att ta med gruppen *Aktiva Frilansare* | `people` `m<item>` – roll = Titel/Roll · frilans |
 | **Frånvaro** (1071497633), alla grupper utom INKOMMET / Ej Godkända | `absence` `a<subitem>` per period i underobjekten (Typ av Frånvaro → typ); personen matchas på *Medarbetare*. Bara perioder som slutar innevarande år eller senare tas med |
 
+### Planering (underobjekt → block)
+
+Underobjekten på Projektöversikt är planeringen (samma data som TeamBoard-vyn *Planering* i Monday):
+**Ansvarig** + **Period** + **Est. tid** → ett block per arbetsdag (mån–fre) i perioden, på personen, med
+underobjektets namn som notering och Est. tid som timmar per dag. Blocken är märkta `src: "monday"` (visas med ett
+litet M) och ersätts vid varje synk – ändra dem i Monday. Manuellt skapade block rörs inte. Planering äldre än
+förra året tas inte med.
+
 Ordningen på personer i gridden är lokal och behålls. Frånvaro från Monday ersätts vid varje synk; manuellt inlagd frånvaro rörs inte.

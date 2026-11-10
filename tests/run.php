@@ -82,5 +82,21 @@ ok($r['people']['u1']['inactive'] === false, 'person som finns i Monday återakt
 ok($r['people']['u2']['role'] === '' && $r['people']['u2']['order'] === 4, 'ny person får nästa ordning');
 ok(count($r['absence']) === 1 && array_values($r['absence'])[0]['type'] === 'VAB', 'bara frånvaro från i år, Ej Godkända hoppas över');
 
+echo "Monday → planering (underobjekt → block)\n";
+$y = (int)date('Y');
+$pi = ['board_id' => 1071363420, 'item_id' => 77, 'name' => 'Marshall Weston', 'group_id' => 'pågående', 'group_title' => 'Pågående', 'columns' => [], 'subitems' => [
+    ['id' => 901, 'name' => 'Retusch', 'columns' => ['Ansvarig' => ['text' => 'Thomas Grape'], 'Period' => ['value' => ['from' => "$y-10-12", 'to' => "$y-10-16"]], 'Est. tid' => ['text' => '4']]],
+    ['id' => 902, 'name' => '3d', 'columns' => ['Ansvarig' => ['text' => 'Mikael Netti, Thomas Grape'], 'Period' => ['value' => ['from' => "$y-10-16", 'to' => "$y-10-19"]], 'Est. tid' => ['text' => '']]],
+    ['id' => 903, 'name' => 'utan person', 'columns' => ['Ansvarig' => ['text' => ''], 'Period' => ['value' => ['from' => "$y-10-12", 'to' => "$y-10-13"]]]],
+]];
+$ppl = ['u5' => ['name' => 'Thomas Grape'], 'u6' => ['name' => 'Mikael Netti']];
+$bl = map_planning([['board' => $board, 'items' => [$pi]]], $ppl, ['m77' => ['name' => 'Marshall Weston']]);
+$tg = array_filter($bl, fn($b) => $b['personId'] === 'u5' && $b['note'] === 'Retusch');
+ok(count($tg) === 5 && array_values($tg)[0]['hours'] === 4.0 && array_values($tg)[0]['src'] === 'monday', 'Retusch 12–16 okt → 5 arbetsdagar, 4 h/dag, märkt monday');
+ok(count(array_filter($bl, fn($b) => $b['note'] === '3d')) === 4, 'helgen hoppas över, två ansvariga → block för båda');
+ok(!isset(array_values(array_filter($bl, fn($b) => $b['note'] === '3d'))[0]['hours']), 'tom Est. tid → inga timmar');
+ok(count(array_filter($bl, fn($b) => $b['note'] === 'utan person')) === 0, 'underobjekt utan ansvarig hoppas över');
+ok(count(map_planning([['board' => $board, 'items' => [$pi]]], $ppl, ['m77' => ['name' => 'x', 'archived' => true]])) === 0, 'arkiverat projekt ger inga block');
+
 echo "\n$n tester, $fails fel\n";
 exit($fails ? 1 : 0);
