@@ -30,6 +30,13 @@ try {
     if (($parts[0] ?? '') === 'monday') {
         $sub = $parts[1] ?? '';
         if ($sub === 'boards' && $method === 'GET') out(monday_boards($cfg));
+        if ($sub === 'peek' && $method === 'GET') {   // felsökning: kolumner + några items med underobjekt
+            $b = monday_board_items($cfg, (string)($_GET['board'] ?? $cfg['MONDAY_BOARDS']), true);
+            $withSubs = array_values(array_filter($b['items'], fn($it) => !empty($it['subitems'])));
+            out(['board' => $b['board']['name'], 'columns' => array_map(fn($c) => $c['title'] . ' (' . $c['type'] . ')', $b['board']['columns']),
+                 'items' => count($b['items']), 'items_with_subitems' => count($withSubs), 'subitems' => array_sum(array_map(fn($it) => count($it['subitems']), $withSubs)),
+                 'sample' => array_slice(array_map(fn($it) => ['name' => $it['name'], 'group' => $it['group_title'], 'subitems' => array_slice($it['subitems'], 0, 4)], $withSubs), 0, (int)($_GET['n'] ?? 3))]);
+        }
         if ($sub === 'sync' && $method === 'POST') {
             $ids = array_filter(array_map('trim', explode(',', $_GET['boards'] ?? ($cfg['MONDAY_BOARDS'] ?? ''))));
             $r = monday_sync($db, $cfg, array_values($ids));
