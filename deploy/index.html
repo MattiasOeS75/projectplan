@@ -154,6 +154,7 @@ h2{font-family:var(--display);font-weight:600;font-size:18px;letter-spacing:.06e
 .blk span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .blk .hrs{float:right;margin-left:6px;padding:0 5px;border-radius:3px;background:var(--c);color:var(--bg);font-family:var(--mono);font-size:10px;font-weight:700;line-height:15px}
 .blk.cl .hrs{visibility:hidden}
+.g-c.stack .blk.cl .hrs{visibility:visible}
 .blk em{font-style:normal;font-family:var(--mono);font-weight:500;font-size:9px;color:inherit;opacity:.75}
 
 .blk[draggable="true"]{cursor:grab}
@@ -172,6 +173,27 @@ h2{font-family:var(--display);font-weight:600;font-size:18px;letter-spacing:.06e
 .grid.ovmode .blk,.grid.ovmode .plus,.grid.ovmode .badge,.grid.ovmode .hit{visibility:hidden}
 .grid.ovmode .g-c.today{box-shadow:inset 2px 0 0 color-mix(in srgb,var(--ok) 55%,transparent),inset -2px 0 0 color-mix(in srgb,var(--ok) 55%,transparent)}
 .grid.ovmode .g-c.dl{box-shadow:inset 3px 0 0 var(--dc),inset -3px 0 0 var(--dc)}
+/* staplat läge: en rad per serie, sammanhängande staplar */
+.g-c.stack{grid-template-rows:repeat(var(--lanes,2),20px);grid-auto-flow:row;grid-auto-rows:20px;grid-template-columns:minmax(0,1fr);gap:2px;min-height:calc(var(--lanes,2)*22px + 4px);align-content:start}
+.g-c.stack .blk{grid-column:1;padding:2px 6px;font-size:10.5px;line-height:16px;flex-direction:row;align-items:center;gap:5px;border-radius:4px}
+.g-c.stack .blk.full,.g-c.stack .blk.am,.g-c.stack .blk.pm{grid-row-end:auto}
+.g-c.stack .blk{overflow:visible}
+.g-c.stack .blk.cr:not(.cl){z-index:3}
+.g-c.stack .blk .lbl{position:absolute;left:6px;top:0;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;pointer-events:none}
+.g-c.stack .blk .lbl em{display:inline;margin-left:6px;opacity:.65;font-weight:500}
+.g-c.stack .blk .hrs{float:none;flex:0 0 auto;margin-left:auto;position:relative;z-index:4}
+.g-c.stack .blk.cl>span,.g-c.stack .blk.cl>em{visibility:hidden}
+.g-c.stack .blk.mon::after{display:none}
+.g-c.stack .blk .rm{top:2px;right:6px}
+.g-c.stack .blk.am::before,.g-c.stack .blk.pm::before{content:attr(data-part);position:absolute;right:6px;top:0;line-height:20px;font-family:var(--mono);font-size:8px;font-weight:700;opacity:.75;z-index:2}
+.g-c.stack .blk.am.cr::before,.g-c.stack .blk.pm.cr::before{display:none}
+.g-c.stack .blk .rh::after{opacity:0}
+.g-c.stack .blk.cl{border-top-left-radius:0;border-bottom-left-radius:0;margin-left:-5px}
+.g-c.stack .blk.cr{border-top-right-radius:0;border-bottom-right-radius:0;margin-right:-4px}
+.g-c.stack .blk.cl>span,.g-c.stack .blk.cl>em{visibility:hidden}
+.g-c.stack .ab{position:absolute;inset:3px;z-index:0;grid-row:auto;display:flex;align-items:flex-end;justify-content:flex-end;padding:2px 5px;font-size:9px}
+.g-c.stack .blk{z-index:1}
+.g-c.stack .plus{z-index:2}
 /* frånvaro */
 .ab{position:relative;z-index:1;border-radius:3px;font-size:10px;font-weight:600;color:var(--muted);padding:2px 4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
   background:repeating-linear-gradient(135deg,var(--surface2) 0 5px,color-mix(in srgb,var(--muted) 18%,var(--surface2)) 5px 10px);border:1px solid var(--line);cursor:default}
@@ -363,6 +385,7 @@ label.f textarea{min-height:70px;resize:vertical}
       <h2 id="h-grid">Beläggning</h2>
       <div class="bar">
         <div class="seg"><button type="button" id="prev" aria-label="Föregående vecka">←</button><button type="button" id="today">Idag</button><button type="button" id="next" aria-label="Nästa vecka">→</button></div>
+        <button type="button" class="btn ghost" id="gridMode" aria-pressed="true" title="Staplat: ett projekt per rad hos varje person, sammanhängande staplar över dagar">Staplat</button>
         <div class="seg" id="weeks"><button type="button" data-w="1">1 v</button><button type="button" data-w="2">2 v</button><button type="button" data-w="3">3 v</button><button type="button" data-w="4">4 v</button><button type="button" data-w="6">6 v</button><button type="button" data-w="8">8 v</button></div>
         <span class="range" id="range"></span>
         <label class="toggle" title="Visar alla avstämningar och döljer resurserna"><input type="checkbox" id="showMs"> Avstämningsvy</label>
@@ -445,6 +468,7 @@ function projStats(p){
   return{booked,next};
 }
 let pipeCompact=true;try{pipeCompact=localStorage.getItem("pipeCompact")!=="0"}catch(e){}
+let gridStack=true;try{gridStack=localStorage.getItem("gridStack")!=="0"}catch(e){}
 function renderPipeline(){
   window.tipHide?.();
   const ps=activeProjects();
@@ -532,15 +556,28 @@ function renderGrid(){
     const wls=weekLoads(per.id,ds,idx,am).map(w=>{const pct=w.cap?w.booked/w.cap:(w.booked?2:0);const cls=pct>1.001?"bad":pct>.85?"warn":"";
       return `<span class="wl ${cls}" title="v${w.w}: ${fmtD(w.booked)} av ${fmtD(w.cap)} tillgängliga dagar (${Math.round(pct*100)} %)"><b><i style="--w:${Math.min(100,Math.round(pct*100))}%"></i></b>${Math.round(pct*100)}%</span>`}).join("");
     h+=`<button type="button" draggable="true" class="g-n${per.bottleneck?" row-bottle":""}${isRes?" res":""}" data-person="${esc(per.id)}" title="Klicka för att ändra · dra för att flytta raden"><span class="pn">${esc(per.name)}${per.bottleneck?`<span class="flag">Flaskhals</span>`:""}</span><span class="pr">${esc(per.role||"")}</span><span class="wls">${wls}</span></button>`;
-    ds.forEach((d,di)=>{const s=iso(d);const bl=(idx[per.id+"|"+s]||[]).sort((a,b)=>"full am pm".indexOf(a.part)-"full am pm".indexOf(b.part));
+      // Staplat läge: varje serie (projekt + notering) får en egen rad ("lane") hos personen, packade så att
+    // serier som inte överlappar i tid kan dela rad – som i Mondays planeringsvy.
+    const sk=b=>b.projectId+"|"+(b.note||"")+"|"+(b.src||"");
+    let lanes=null,nLanes=2;
+    if(gridStack){const ser=new Map();
+      ds.forEach((d,di)=>{for(const b of idx[per.id+"|"+iso(d)]||[]){const k=sk(b);const e=ser.get(k)||{k,a:di,b:di};e.b=di;ser.set(k,e)}});
+      const list=[...ser.values()].sort((x,y)=>x.a-y.a||y.b-x.b);const ends=[];lanes={};
+      for(const e of list){let L=ends.findIndex(end=>end<e.a);if(L<0){L=ends.length;ends.push(e.b)}else ends[L]=e.b;lanes[e.k]=L}
+      nLanes=Math.max(2,ends.length)}
+  ds.forEach((d,di)=>{const s=iso(d);const bl=(idx[per.id+"|"+s]||[]).sort((a,b)=>lanes?(lanes[sk(a)]-lanes[sk(b)]):("full am pm".indexOf(a.part)-"full am pm".indexOf(b.part)));
       const abs=absFor(am,per.id,s);
       const load=bl.reduce((a,b)=>a+bw(b),0)+abs.reduce((a,x)=>a+absW(x),0);
-      const dp=delBy[s],ap=!dp&&avBy[s];h+=`<div class="g-c${abs.length?" absday":""}${d.getDay()===1?" mon":""}${s===TODAY?" today":""}${per.bottleneck?" row-bottle":""}${dp?" dl":""}${ap?" avd":""}"${dp?` style="--dc:${pc(dp)}"`:ap?` style="--ac:${pc(ap)}"`:""} data-p="${esc(per.id)}" data-d="${s}">
+      const dp=delBy[s],ap=!dp&&avBy[s];h+=`<div class="g-c${lanes?" stack":""}${abs.length?" absday":""}${d.getDay()===1?" mon":""}${s===TODAY?" today":""}${per.bottleneck?" row-bottle":""}${dp?" dl":""}${ap?" avd":""}" style="${dp?`--dc:${pc(dp)};`:ap?`--ac:${pc(ap)};`:""}${lanes?`--lanes:${nLanes}`:""}" data-p="${esc(per.id)}" data-d="${s}">
         <button type="button" class="hit am" data-add="am" aria-label="Blocka FM ${esc(per.name)} ${s}"></button><button type="button" class="hit pm" data-add="pm" aria-label="Blocka EM ${esc(per.name)} ${s}"></button>
         ${abs.map(a=>`<div class="ab ${a.part==="am"||a.part==="pm"?a.part:"full"}" title="${esc((a.type||"Frånvaro")+(a.note?" · "+a.note:"")+" · från Monday Frånvaro")}">${esc(a.type||"Frånvaro")}</div>`).join("")}
         ${bl.map(b=>{const p=S.projects[b.projectId];const pp=p?{...p,id:b.projectId}:null;
-          const me=solo(bl,b),cl=me&&di>0&&runs(idx[per.id+"|"+iso(ds[di-1])],b),cr=me&&di<ds.length-1&&runs(idx[per.id+"|"+iso(ds[di+1])],b);
-          return `<div role="button" tabindex="0" draggable="true" class="blk ${b.part}${b.tent?" tent":""}${b.src==="monday"?" mon":""}${cl?" cl":""}${cr?" cr":""}${b.note?" has-note":""}${view.focus===b.projectId?" focus":""}" style="--c:${pc(pp)}" data-blk="${esc(b.id)}" title="${esc((p?.name||"Okänt projekt")+" · "+PARTS[b.part]+(b.hours?" · "+fmtH(b.hours):"")+(b.note?" · "+b.note:"")+(b.tent?" · preliminärt":"")+(b.src==="monday"?" · från Monday":""))}"><span>${esc(p?.code||p?.name||"?")}${b.hours?`<b class="hrs">${fmtH(b.hours)}</b>`:""}</span>${b.part!=="full"?`<em>${PARTS[b.part]}</em>`:b.note?`<em>${esc(b.note)}</em>`:""}<button type="button" class="rm" data-rm="${esc(b.id)}" draggable="false" aria-label="Ta bort block" title="Ta bort">−</button><i class="rh l" data-rh="l" aria-hidden="true"></i><i class="rh r" data-rh="r" aria-hidden="true"></i></div>`}).join("")}
+          let cl,cr;
+          let run=1;
+          if(lanes){const same=(list,x)=>(list||[]).some(o=>sk(o)===sk(x)&&o.part===x.part);cl=di>0&&same(idx[per.id+"|"+iso(ds[di-1])],b);cr=di<ds.length-1&&same(idx[per.id+"|"+iso(ds[di+1])],b);
+            if(!cl){while(di+run<ds.length&&same(idx[per.id+"|"+iso(ds[di+run])],b))run++}}
+          else{const me=solo(bl,b);cl=me&&di>0&&runs(idx[per.id+"|"+iso(ds[di-1])],b);cr=me&&di<ds.length-1&&runs(idx[per.id+"|"+iso(ds[di+1])],b)}
+          return `<div role="button" tabindex="0" draggable="true" class="blk ${b.part}${b.tent?" tent":""}${b.src==="monday"?" mon":""}${cl?" cl":""}${cr?" cr":""}${b.note?" has-note":""}${view.focus===b.projectId?" focus":""}" style="--c:${pc(pp)}${lanes?`;grid-row:${lanes[sk(b)]+1}`:""}" data-part="${PARTS[b.part]}" data-blk="${esc(b.id)}" title="${esc((p?.name||"Okänt projekt")+" · "+PARTS[b.part]+(b.hours?" · "+fmtH(b.hours):"")+(b.note?" · "+b.note:"")+(b.tent?" · preliminärt":"")+(b.src==="monday"?" · från Monday":""))}">${lanes?`<span class="lbl" style="max-width:${run*colW-26}px">${esc(b.note||p?.name||"?")}<em>${esc(p?.code||"")}</em></span>${b.hours&&!cr?`<b class="hrs">${fmtH(b.hours)}</b>`:""}`:`<span>${esc(p?.code||p?.name||"?")}${b.hours?`<b class="hrs">${fmtH(b.hours)}</b>`:""}</span>${b.part!=="full"?`<em>${PARTS[b.part]}</em>`:b.note?`<em>${esc(b.note)}</em>`:""}`}<button type="button" class="rm" data-rm="${esc(b.id)}" draggable="false" aria-label="Ta bort block" title="Ta bort">−</button><i class="rh l" data-rh="l" aria-hidden="true"></i><i class="rh r" data-rh="r" aria-hidden="true"></i></div>`}).join("")}
         ${bl.length?`<button type="button" class="plus" data-add="${bl.some(b=>b.part==="am"||b.part==="full")?"pm":"am"}" aria-label="Lägg till block">+</button>`:""}
 </div>`})
   }
@@ -761,6 +798,7 @@ document.addEventListener("click",e=>{
   if(t.closest("#newProj")){projectEditor(null,0);return}
   const ua=t.closest("[data-unarch]");if(ua){const p=S.projects[ua.dataset.unarch];if(p){put("projects",ua.dataset.unarch,{...p,archived:false});toast(`${p.name} är tillbaka i pipelinen.`)}return}
   if(t.closest("#syncBtn")){syncMonday();return}
+  if(t.closest("#gridMode")){gridStack=!gridStack;try{localStorage.setItem("gridStack",gridStack?"1":"0")}catch(e){}renderGrid();return}
   if(t.closest("#pipeMode")){pipeCompact=!pipeCompact;try{localStorage.setItem("pipeCompact",pipeCompact?"1":"0")}catch(e){}renderPipeline();return}
   const md=t.closest("[data-msday]");if(md){dayPopover(md.dataset.msday,md);return}
   const cf=t.closest("[data-colorfor]");if(cf){e.stopPropagation();quickColor(cf.dataset.colorfor);return}
